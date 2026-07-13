@@ -1,15 +1,14 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" role="img" aria-label="Abyssal Relic Quest thumbnail">
-  <rect width="640" height="360" fill="#f4f0df"/>
-  <rect x="44" y="30" width="552" height="300" rx="10" fill="#08252e"/>
-  <path d="M72 86c94 38 172 24 266 0s160-28 230 2M72 156c94 38 172 24 266 0s160-28 230 2M72 226c94 38 172 24 266 0s160-28 230 2" fill="none" stroke="#7bd8d8" stroke-width="9" stroke-linecap="round" opacity=".34"/>
-  <ellipse cx="178" cy="102" rx="108" ry="48" fill="#061418" opacity=".68"/>
-  <ellipse cx="430" cy="236" rx="126" ry="58" fill="#061418" opacity=".68"/>
-  <path d="M238 188c42-34 102-34 146 0-42 42-104 42-146 0Z" fill="#f4f0df"/>
-  <rect x="288" y="176" width="38" height="24" fill="#7bd8d8"/>
-  <circle cx="340" cy="180" r="7" fill="#061418"/>
-  <circle cx="492" cy="112" r="21" fill="#e8b75d"/>
-  <circle cx="128" cy="244" r="18" fill="#e8b75d"/>
-  <ellipse cx="470" cy="190" rx="70" ry="42" fill="#17363d" stroke="#df6651" stroke-width="7"/>
-  <circle cx="512" cy="176" r="6" fill="#df6651"/>
-  <path d="M104 306h432" stroke="#061418" stroke-width="8" stroke-linecap="round" opacity=".58"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" role="img" aria-label="Trade Wind Run thumbnail">
+  <rect width="640" height="360" fill="#f5f0dc"/>
+  <rect x="44" y="30" width="552" height="300" rx="10" fill="#0f6170"/>
+  <path d="M70 100c96 38 176 26 270 0s156-30 230 4M70 170c96 38 176 26 270 0s156-30 230 4M70 240c96 38 176 26 270 0s156-30 230 4" fill="none" stroke="#f5f0dc" stroke-width="10" stroke-linecap="round" opacity=".34"/>
+  <path d="M96 70h102M420 84h116M390 286h104" stroke="#9bd6d6" stroke-width="12" stroke-linecap="round" opacity=".75"/>
+  <path d="M235 238l122-22" stroke="#f5f0dc" stroke-width="15" stroke-linecap="round"/>
+  <rect x="294" y="205" width="28" height="30" rx="6" fill="#07191d"/>
+  <path d="M310 202l34-116 86 106Z" fill="#9bd6d6" opacity=".82"/>
+  <path d="M310 202l34-116 22 126Z" fill="#e7b75c" opacity=".78"/>
+  <path d="M128 236l20-38 32 22-10 37Z" fill="#de694c"/>
+  <circle cx="476" cy="180" r="34" fill="#f5f0dc" stroke="#e7b75c" stroke-width="8"/>
+  <path d="M488 150v-38" stroke="#de694c" stroke-width="10" stroke-linecap="round"/>
+  <path d="M86 314h468" stroke="#07191d" stroke-width="8" stroke-linecap="round" opacity=".55"/>
 </svg>

@@ -17,18 +17,18 @@
   },
   {
     "id": "abyssal-relic-quest",
-    "title": "Abyssal Relic Quest",
-    "description": "A super adventurous water game: explore a scrolling abyss map, manage oxygen and hull, collect five relics, open the trench gate, and fight the leviathan.",
+    "title": "Trade Wind Run",
+    "description": "A super adventurous wind-surfing game: carve across open water, catch shifting trade winds, collect seven flags, dodge reefs and storm buoys, and cross the finish gate.",
     "status": "Ready",
     "playUrl": "/games/abyssal-relic-quest/",
     "codeUrl": "",
     "image": "/assets/thumbnails/abyssal-relic-quest.svg",
     "tags": [
       "Canvas",
-      "Ocean",
+      "Wind Surfing",
       "Adventure"
     ],
-    "learned": "Adventure games feel bigger when the map has a clear quest chain: explore, collect, unlock, survive, and face a final threat.",
+    "learned": "Adventure games feel bigger when movement itself has skill: read the wind, choose a line, collect route markers, and finish the run cleanly.",
     "accent": "sky"
   },
   {
