@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Conical Feast</title>
-    <link rel="icon" href='data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"%3E%3Crect width="32" height="32" fill="%23061015"/%3E%3Cpath d="M7 17 C12 9 21 10 26 16 C21 23 12 24 7 17 Z" fill="%23d6f2df"/%3E%3Cpath d="M8 17 L3 12 L4 22 Z" fill="%2383c9c1"/%3E%3C/svg%3E'>
+    <link rel="icon" href='data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"%3E%3Crect width="32" height="32" fill="%23061015"/%3E%3Ccircle cx="16" cy="13" r="7" fill="%23ff9f86"/%3E%3Cpath d="M9 18 C7 23 5 25 3 27 M13 20 C12 25 10 27 8 29 M18 20 C19 25 21 27 24 29 M22 18 C25 22 27 24 30 26" fill="none" stroke="%23ffd08a" stroke-width="3" stroke-linecap="round"/%3E%3C/svg%3E'>
     <link rel="stylesheet" href="./style.css" />
     <script src="./game.js" defer></script>
   </head>
@@ -13,7 +13,7 @@
       <header class="topbar">
         <div class="brand">
           <div class="title">Conical Feast</div>
-          <div class="subtitle">Hunt, bank, upgrade, descend.</div>
+          <div class="subtitle">Feast, bank, grow, descend.</div>
         </div>
         <div class="hud" id="hud" aria-live="polite"></div>
       </header>
@@ -23,7 +23,7 @@
 
         <aside class="upgrade-panel" aria-label="Upgrade panel">
           <div class="panel-heading">
-            <span>Reef Lab</span>
+            <span>Octopus Den</span>
             <strong id="bankedBiomass">0</strong>
           </div>
           <div class="upgrade-grid">
@@ -54,16 +54,16 @@
           <div class="overlay-card">
             <div class="overlay-title">Conical Feast</div>
             <div class="overlay-body">
-              Keep prey inside the cone until its HP empties. Full cargo must be banked at the reef before it becomes upgrade biomass.
+              Sweep prey into the conical feast zone, hold them there until their HP empties, then return biomass to the den for upgrades.
             </div>
-            <button id="startButton" class="primary-btn" type="button">Start Dive</button>
+            <button id="startButton" class="primary-btn" type="button">Start Feast</button>
           </div>
         </div>
       </section>
 
       <footer class="bottombar">
         <span>Move: WASD / Arrows</span>
-        <span>Aim: mouse / touch</span>
+        <span>Aim tentacles: mouse / touch</span>
         <span>Upgrade: click buttons or 1-5</span>
       </footer>
     </main>

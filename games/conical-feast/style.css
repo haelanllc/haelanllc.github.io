@@ -1,17 +1,17 @@
 :root {
-  --bg: #081015;
-  --bg-deep: #061b23;
-  --panel: rgba(11, 26, 32, 0.76);
-  --panel-strong: rgba(13, 34, 42, 0.94);
-  --ink: #eef7f4;
-  --muted: rgba(238, 247, 244, 0.68);
-  --faint: rgba(238, 247, 244, 0.14);
-  --line: rgba(166, 220, 209, 0.24);
-  --accent: #9ed8cf;
-  --accent-strong: #d6f2df;
-  --warm: #f2c57c;
-  --danger: #ff8f79;
-  --good: #9ee6ae;
+  --bg: #07111b;
+  --bg-deep: #063042;
+  --panel: rgba(8, 30, 43, 0.78);
+  --panel-strong: rgba(9, 33, 48, 0.96);
+  --ink: #fffaf0;
+  --muted: rgba(255, 250, 240, 0.72);
+  --faint: rgba(255, 250, 240, 0.15);
+  --line: rgba(255, 208, 138, 0.28);
+  --accent: #5be7d6;
+  --accent-strong: #ffd08a;
+  --warm: #ffb35f;
+  --danger: #ff6f7d;
+  --good: #8dffb7;
 }
 
 * {
@@ -28,8 +28,9 @@ body {
   color: var(--ink);
   font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   background:
-    linear-gradient(180deg, rgba(12, 48, 58, 0.38), transparent 38%),
-    radial-gradient(900px 620px at 18% 0%, rgba(158, 216, 207, 0.12), transparent 58%),
+    linear-gradient(180deg, rgba(45, 132, 151, 0.4), transparent 38%),
+    radial-gradient(900px 620px at 18% 0%, rgba(255, 159, 134, 0.18), transparent 58%),
+    radial-gradient(800px 520px at 88% 16%, rgba(91, 231, 214, 0.12), transparent 56%),
     var(--bg);
 }
 
@@ -170,7 +171,7 @@ button {
 
 .panel-heading strong {
   color: var(--accent-strong);
-  font-size: 16px;
+  font-size: 17px;
   letter-spacing: 0;
 }
 
@@ -187,7 +188,7 @@ button {
   border: 1px solid rgba(238, 247, 244, 0.16);
   border-radius: 8px;
   color: var(--ink);
-  background: rgba(238, 247, 244, 0.06);
+  background: rgba(255, 250, 240, 0.07);
   cursor: pointer;
 }
 
@@ -211,8 +212,8 @@ button {
 }
 
 .upgrade-btn:hover {
-  border-color: rgba(158, 216, 207, 0.44);
-  background: rgba(158, 216, 207, 0.1);
+  border-color: rgba(255, 208, 138, 0.58);
+  background: rgba(255, 208, 138, 0.11);
 }
 
 .upgrade-btn:disabled {
@@ -221,7 +222,7 @@ button {
 }
 
 .upgrade-btn.ready {
-  border-color: rgba(158, 230, 174, 0.48);
+  border-color: rgba(141, 255, 183, 0.58);
 }
 
 .overlay {
@@ -230,7 +231,7 @@ button {
   display: grid;
   place-items: center;
   padding: 22px;
-  background: radial-gradient(780px 520px at 50% 46%, rgba(6, 20, 27, 0.56), rgba(6, 20, 27, 0.9));
+  background: radial-gradient(780px 520px at 50% 46%, rgba(6, 20, 27, 0.36), rgba(6, 20, 27, 0.88));
 }
 
 .overlay[hidden] {
@@ -240,7 +241,7 @@ button {
 .overlay-card {
   width: min(520px, 100%);
   padding: 16px;
-  border: 1px solid var(--line);
+  border: 1px solid rgba(255, 208, 138, 0.36);
   border-radius: 8px;
   background: var(--panel-strong);
 }
@@ -265,7 +266,7 @@ button {
   border: 1px solid rgba(214, 242, 223, 0.46);
   border-radius: 8px;
   color: #061015;
-  background: var(--accent-strong);
+  background: linear-gradient(180deg, #ffe0a8, #ffb35f);
   font-weight: 760;
   cursor: pointer;
 }

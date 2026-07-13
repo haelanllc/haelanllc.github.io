@@ -2,7 +2,7 @@
   {
     "id": "conical-feast",
     "title": "Conical Feast",
-    "description": "A fish growth game inspired by Octopus Feast: aim a conical sonar window, drain prey HP to zero, haul biomass home, and upgrade capacity, speed, health, cone size, and fish size.",
+    "description": "An octopus-style feast game: aim a conical sonar window, drain prey HP to zero, haul biomass back to the den, and upgrade capacity, speed, health, cone size, and body size.",
     "status": "Testing",
     "playUrl": "/games/conical-feast/",
     "codeUrl": "",

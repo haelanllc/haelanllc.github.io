@@ -13,20 +13,20 @@
   const DPR_MAX = 2;
 
   const COLORS = {
-    ink: "#eef7f4",
-    muted: "rgba(238,247,244,0.68)",
-    faint: "rgba(238,247,244,0.14)",
-    waterTop: "#0d3340",
-    waterMid: "#07232d",
-    waterLow: "#04141c",
-    cone: "rgba(158,216,207,0.18)",
-    coneLine: "rgba(214,242,223,0.58)",
-    player: "#d6f2df",
-    playerTail: "#83c9c1",
-    home: "#9ee6ae",
-    good: "#9ee6ae",
-    warm: "#f2c57c",
-    danger: "#ff8f79",
+    ink: "#fffaf0",
+    muted: "rgba(255,250,240,0.72)",
+    faint: "rgba(255,250,240,0.16)",
+    waterTop: "#13536a",
+    waterMid: "#0a3447",
+    waterLow: "#061724",
+    cone: "rgba(91,231,214,0.18)",
+    coneLine: "rgba(255,208,138,0.72)",
+    player: "#ff9f86",
+    playerArm: "#ffd08a",
+    home: "#8dffb7",
+    good: "#8dffb7",
+    warm: "#ffb35f",
+    danger: "#ff6f7d",
     dark: "#061015",
   };
 
@@ -52,7 +52,7 @@
       biomass: 5,
       speed: 28,
       turn: 1.2,
-      color: "#f2c57c",
+      color: "#ffd08a",
       minDepth: 1,
       weight: 36,
       threat: 0,
@@ -65,7 +65,7 @@
       biomass: 10,
       speed: 48,
       turn: 1.6,
-      color: "#9ed8cf",
+      color: "#5be7d6",
       minDepth: 1,
       weight: 24,
       threat: 1.5,
@@ -78,7 +78,7 @@
       biomass: 18,
       speed: 54,
       turn: 1.3,
-      color: "#d8c58f",
+      color: "#f7e38b",
       minDepth: 2,
       weight: 16,
       threat: 5,
@@ -91,7 +91,7 @@
       biomass: 34,
       speed: 76,
       turn: 1.0,
-      color: "#b9c9d8",
+      color: "#b9e9ff",
       minDepth: 3,
       weight: 10,
       threat: 10,
@@ -104,7 +104,7 @@
       biomass: 64,
       speed: 36,
       turn: 0.62,
-      color: "#d98b78",
+      color: "#ff7f6e",
       minDepth: 4,
       weight: 6,
       threat: 18,
@@ -193,6 +193,7 @@
       cargoPulse: 0,
       hurtPulse: 0,
       basePulse: 0,
+      bitePulse: 0,
       lastCaptureAt: 0,
     },
     prey: [],
@@ -296,10 +297,11 @@
       cargoPulse: 0,
       hurtPulse: 0,
       basePulse: 0,
+      bitePulse: 0,
     });
 
     for (let i = 0; i < 18; i += 1) spawnPrey(true);
-    setMessage("Dive started");
+    setMessage("Feast started");
   }
 
   function buyUpgrade(key) {
@@ -350,6 +352,7 @@
     state.player.cargoPulse = Math.max(0, state.player.cargoPulse - dt);
     state.player.hurtPulse = Math.max(0, state.player.hurtPulse - dt);
     state.player.basePulse = Math.max(0, state.player.basePulse - dt);
+    state.player.bitePulse = Math.max(0, state.player.bitePulse - dt);
 
     updatePlayer(dt);
     updatePrey(dt);
@@ -462,6 +465,7 @@
       prey.hitTimer = 0.18;
       prey.hp -= s.drain * (1 + fitBonus) * dt;
       lockedCount += 1;
+      p.bitePulse = 0.16;
 
       addParticle(prey.x, prey.y, COLORS.coneLine, 1);
 
@@ -570,7 +574,7 @@
     state.player.hurtPulse = 0;
     state.prey.length = Math.max(0, state.prey.length - 4);
     burst(base.x, base.y, COLORS.home, 22);
-    setMessage(lost > 0 ? `Blacked out. ${lost} cargo lost.` : "Blacked out at reef.");
+    setMessage(lost > 0 ? `Blacked out. ${lost} cargo lost.` : "Blacked out at den.");
   }
 
   function updateSpawning(dt) {
@@ -677,6 +681,7 @@
     drawWater();
     drawHomebase();
     drawCone();
+    drawCaptureTethers();
 
     for (const prey of state.prey) drawPrey(prey);
     drawPlayer();
@@ -695,8 +700,8 @@
     ctx.fillRect(0, 0, w, h);
 
     ctx.save();
-    ctx.globalAlpha = 0.38;
-    ctx.strokeStyle = "rgba(238,247,244,0.08)";
+    ctx.globalAlpha = 0.32;
+    ctx.strokeStyle = "rgba(255,250,240,0.09)";
     ctx.lineWidth = 1;
     const drift = (state.time * 18) % 80;
     for (let y = -80 + drift; y < h + 80; y += 80) {
@@ -709,12 +714,23 @@
       ctx.stroke();
     }
 
-    ctx.globalAlpha = 0.18;
-    ctx.strokeStyle = "rgba(158,216,207,0.18)";
+    ctx.globalAlpha = 0.16;
+    ctx.strokeStyle = "rgba(91,231,214,0.2)";
     for (let x = 0; x < w; x += 96) {
       ctx.beginPath();
       ctx.moveTo(x, 0);
       ctx.lineTo(x - 36, h);
+      ctx.stroke();
+    }
+
+    ctx.globalAlpha = 0.28;
+    for (let i = 0; i < 22; i += 1) {
+      const x = ((i * 97 + state.time * 9) % (w + 80)) - 40;
+      const y = (i * 53 + Math.sin(state.time + i) * 18) % h;
+      const r = 1.6 + (i % 4) * 0.75;
+      ctx.strokeStyle = i % 3 === 0 ? "rgba(255,208,138,0.28)" : "rgba(255,250,240,0.18)";
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, TAU);
       ctx.stroke();
     }
     ctx.restore();
@@ -726,34 +742,46 @@
     ctx.save();
     ctx.translate(base.x, base.y);
 
-    const glow = ctx.createRadialGradient(0, 0, 12, 0, 0, base.radius * 1.45);
-    glow.addColorStop(0, "rgba(158,230,174,0.25)");
-    glow.addColorStop(1, "rgba(158,230,174,0)");
+    const glow = ctx.createRadialGradient(0, 0, 12, 0, 0, base.radius * 1.58);
+    glow.addColorStop(0, "rgba(141,255,183,0.28)");
+    glow.addColorStop(1, "rgba(141,255,183,0)");
     ctx.fillStyle = glow;
     ctx.beginPath();
     ctx.arc(0, 0, base.radius * 1.45 * pulse, 0, TAU);
     ctx.fill();
 
-    ctx.strokeStyle = "rgba(158,230,174,0.62)";
+    ctx.strokeStyle = "rgba(255,208,138,0.72)";
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.arc(0, 0, base.radius * pulse, 0, TAU);
     ctx.stroke();
 
-    ctx.fillStyle = "rgba(158,230,174,0.14)";
+    ctx.fillStyle = "rgba(6,16,21,0.62)";
     ctx.beginPath();
     ctx.arc(0, 0, base.radius * 0.78, 0, TAU);
     ctx.fill();
 
-    drawReefBranch(-22, 18, 30, -48, "#6abf9b");
-    drawReefBranch(4, 26, 38, -58, "#88d1a5");
-    drawReefBranch(27, 20, 24, -38, "#d8c58f");
+    drawDenRock(-34, 26, 26, 19, "#285665");
+    drawDenRock(-8, 18, 34, 24, "#173e4e");
+    drawDenRock(26, 26, 27, 18, "#2d6974");
+    drawReefBranch(-32, 20, 28, -40, "#8dffb7");
+    drawReefBranch(28, 24, 24, 38, "#ffd08a");
 
     ctx.fillStyle = "rgba(238,247,244,0.78)";
     ctx.font = "700 10px ui-sans-serif, system-ui";
     ctx.textAlign = "center";
-    ctx.fillText("HOMEBASE", 0, base.radius + 18);
+    ctx.fillText("DEN", 0, base.radius + 18);
     ctx.restore();
+  }
+
+  function drawDenRock(x, y, width, height, color) {
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.ellipse(x, y, width, height, 0, 0, TAU);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(255,250,240,0.12)";
+    ctx.lineWidth = 1;
+    ctx.stroke();
   }
 
   function drawReefBranch(x, y, height, lean, color) {
@@ -804,36 +832,103 @@
     ctx.restore();
   }
 
+  function drawCaptureTethers() {
+    const s = stats();
+    const p = state.player;
+    const locked = state.prey.filter((prey) => prey.locked);
+    if (!locked.length) return;
+
+    ctx.save();
+    ctx.lineCap = "round";
+    for (const prey of locked) {
+      const dx = prey.x - p.x;
+      const dy = prey.y - p.y;
+      const distance = Math.max(1, Math.hypot(dx, dy));
+      const nx = dx / distance;
+      const ny = dy / distance;
+      const side = ((prey.x + prey.y) % 2 > 1 ? 1 : -1) * Math.min(42, distance * 0.16);
+      const startX = p.x + nx * s.radius * 0.74 - ny * side * 0.18;
+      const startY = p.y + ny * s.radius * 0.74 + nx * side * 0.18;
+      const midX = (p.x + prey.x) * 0.5 - ny * side + Math.sin(state.time * 8 + prey.radius) * 6;
+      const midY = (p.y + prey.y) * 0.5 + nx * side + Math.cos(state.time * 7 + prey.radius) * 6;
+
+      ctx.strokeStyle = "rgba(255,208,138,0.78)";
+      ctx.lineWidth = Math.max(3, s.radius * 0.16);
+      ctx.beginPath();
+      ctx.moveTo(startX, startY);
+      ctx.quadraticCurveTo(midX, midY, prey.x, prey.y);
+      ctx.stroke();
+
+      ctx.strokeStyle = "rgba(255,250,240,0.42)";
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(startX, startY);
+      ctx.quadraticCurveTo(midX, midY, prey.x, prey.y);
+      ctx.stroke();
+
+      const bead = (state.time * 2.8 + prey.radius * 0.03) % 1;
+      const bx = (1 - bead) * (1 - bead) * startX + 2 * (1 - bead) * bead * midX + bead * bead * prey.x;
+      const by = (1 - bead) * (1 - bead) * startY + 2 * (1 - bead) * bead * midY + bead * bead * prey.y;
+      ctx.fillStyle = "rgba(255,250,240,0.9)";
+      ctx.beginPath();
+      ctx.arc(bx, by, 2.6, 0, TAU);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
   function drawPlayer() {
     const s = stats();
     const p = state.player;
     const hurt = p.hurtPulse > 0 ? p.hurtPulse / 0.16 : 0;
     const cargo = p.cargoPulse > 0 ? p.cargoPulse / 0.28 : 0;
+    const bite = p.bitePulse > 0 ? p.bitePulse / 0.16 : 0;
 
     ctx.save();
     ctx.translate(p.x, p.y);
     ctx.rotate(p.angle);
 
-    ctx.fillStyle = hurt > 0 ? COLORS.danger : COLORS.playerTail;
-    ctx.beginPath();
-    ctx.moveTo(-s.radius * 0.9, 0);
-    ctx.lineTo(-s.radius * 1.75, -s.radius * 0.7);
-    ctx.lineTo(-s.radius * 1.62, s.radius * 0.7);
-    ctx.closePath();
-    ctx.fill();
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    for (let i = 0; i < 6; i += 1) {
+      const offset = (i - 2.5) * s.radius * 0.22;
+      const curl = Math.sin(state.time * 5 + i) * s.radius * 0.2;
+      const reach = s.radius * (1.25 + (i % 2) * 0.18 + bite * 0.35);
+      ctx.strokeStyle = i % 2 ? COLORS.playerArm : "#ffbf79";
+      ctx.lineWidth = Math.max(4, s.radius * 0.22);
+      ctx.beginPath();
+      ctx.moveTo(-s.radius * 0.45, offset * 0.3);
+      ctx.quadraticCurveTo(-s.radius * 0.98, offset + curl, -reach, offset * 1.15 + curl * 0.7);
+      ctx.stroke();
 
-    const bodyGradient = ctx.createLinearGradient(-s.radius, -s.radius, s.radius, s.radius);
-    bodyGradient.addColorStop(0, hurt > 0 ? "#ffb09f" : "#eef7f4");
-    bodyGradient.addColorStop(1, cargo > 0 ? COLORS.warm : COLORS.playerTail);
+      ctx.fillStyle = "rgba(255,250,240,0.45)";
+      ctx.beginPath();
+      ctx.arc(-reach + s.radius * 0.1, offset * 1.08 + curl * 0.62, Math.max(1.5, s.radius * 0.07), 0, TAU);
+      ctx.fill();
+    }
+
+    const bodyGradient = ctx.createRadialGradient(-s.radius * 0.26, -s.radius * 0.28, 2, 0, 0, s.radius * 1.45);
+    bodyGradient.addColorStop(0, hurt > 0 ? "#ffd2c8" : "#ffd0b9");
+    bodyGradient.addColorStop(0.58, cargo > 0 ? "#ffb35f" : COLORS.player);
+    bodyGradient.addColorStop(1, "#d76472");
     ctx.fillStyle = bodyGradient;
     ctx.beginPath();
-    ctx.ellipse(0, 0, s.radius * 1.36, s.radius * 0.78, 0, 0, TAU);
+    ctx.ellipse(0, 0, s.radius * (1.04 + bite * 0.08), s.radius * 0.95, 0, 0, TAU);
     ctx.fill();
 
     ctx.fillStyle = COLORS.dark;
     ctx.beginPath();
-    ctx.arc(s.radius * 0.68, -s.radius * 0.18, Math.max(2.2, s.radius * 0.12), 0, TAU);
+    ctx.arc(s.radius * 0.34, -s.radius * 0.24, Math.max(2.2, s.radius * 0.12), 0, TAU);
     ctx.fill();
+    ctx.beginPath();
+    ctx.arc(s.radius * 0.38, s.radius * 0.24, Math.max(2.2, s.radius * 0.12), 0, TAU);
+    ctx.fill();
+
+    ctx.strokeStyle = "rgba(255,250,240,0.46)";
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.arc(s.radius * 0.18, 0, Math.max(3, s.radius * 0.18 + bite * 2), -0.72, 0.72);
+    ctx.stroke();
 
     ctx.restore();
   }
@@ -946,7 +1041,7 @@
     const p = state.player;
     const cargoFull = p.cargo >= s.maxCargo - 0.05;
     const depth = depthLevel();
-    const fishSize = Math.round(s.edibleRadius);
+    const octopusSize = Math.round(s.edibleRadius);
 
     hud.innerHTML = `
       <div class="meter">
@@ -962,8 +1057,8 @@
         <div class="bar"><span style="--value:${Math.min(100, depth * 16.6)}%; --fill:${COLORS.coneLine};"></span></div>
       </div>
       <div class="meter">
-        <div class="meter-label"><span>Fish Size</span><span class="meter-value">${fishSize}</span></div>
-        <div class="bar"><span style="--value:${Math.min(100, fishSize * 2.7)}%; --fill:${COLORS.playerTail};"></span></div>
+        <div class="meter-label"><span>Octopus</span><span class="meter-value">${octopusSize}</span></div>
+        <div class="bar"><span style="--value:${Math.min(100, octopusSize * 2.7)}%; --fill:${COLORS.playerArm};"></span></div>
       </div>
     `;
 
