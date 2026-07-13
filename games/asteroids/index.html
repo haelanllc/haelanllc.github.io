@@ -1,31 +1,63 @@
-<html>
-  <head>
-    <script src="jquery-1.4.1.min.js"></script>
-    <script src="vector_battle_regular.typeface.js"></script>
-    <script src="ipad.js"></script>
-    <script src="game.js"></script>
-    <style>
-      #canvas { border:1px solid black; top:0px; left:0px; }
-      .button { position:absolute; border:1px solid black; }
-      #left-controls { position:absolute; left:1px; bottom:0px; display:none; }
-      #right-controls { position:absolute; right:1px; bottom:0px; display:none; }
-      #up { width:200px; height:100px; bottom:100px;}
-      #left { width:100px; height:100px; bottom:0px;}
-      #right { width:100px; height:100px; bottom:0px; left:100px; }
-      #space { width:200px; height:200px; bottom:0px; right:0px; }
-    </style>
-  </head>
-  <body>
-    <div id="game-container">
-      <canvas id="canvas" width="780" height="540"></canvas>
-      <div id="left-controls">
-        <div id="up" class='button'>THRUST</div>
-        <div id="left" class='button'>LEFT</div>
-        <div id="right" class='button'>RIGHT</div>
-      </div>
-      <div id="right-controls">
-        <div id="space" class='button'>FIRE</div>
-      </div>
-    </div>
-  </body>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <title>Asteroids</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      overflow: hidden;
+      color: #fffaf0;
+      background: #061015;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      touch-action: none;
+    }
+    .hud {
+      position: fixed;
+      inset: 0 0 auto 0;
+      z-index: 2;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      min-height: 58px;
+      padding: 10px 12px;
+      background: rgba(6, 16, 21, 0.76);
+      border-bottom: 1px solid rgba(255, 250, 240, 0.16);
+      backdrop-filter: blur(10px);
+    }
+    .hud strong { display: block; font-size: 14px; }
+    .hud span { color: rgba(255, 250, 240, 0.72); font-size: 12px; }
+    .hud-actions { display: flex; align-items: center; gap: 8px; }
+    .score { min-width: 64px; text-align: right; font-weight: 850; }
+    button {
+      min-height: 36px;
+      padding: 0 12px;
+      border: 1px solid rgba(255, 208, 138, 0.6);
+      border-radius: 8px;
+      color: #061015;
+      background: #ffd08a;
+      font: 800 13px/1 ui-sans-serif, system-ui, sans-serif;
+    }
+    canvas {
+      display: block;
+      width: 100vw;
+      height: calc(100vh - 58px);
+      margin-top: 58px;
+      touch-action: none;
+    }
+  </style>
+</head>
+<body data-bonus-game="asteroids" data-game-title="Asteroids" data-game-subtitle="Thrust, turn, shoot rocks, and survive.">
+  <div class="hud">
+    <div><strong>Asteroids</strong><span id="status">Tap Start</span></div>
+    <div class="hud-actions"><button id="start" type="button">Start</button><div class="score">Score <span id="score">0</span></div></div>
+  </div>
+  <canvas id="game" aria-label="Asteroids game"></canvas>
+  <script src="../bonus-mobile-game.js"></script>
+  <script src="../mobile-controls.js"></script>
+</body>
 </html>

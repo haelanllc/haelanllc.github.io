@@ -2,121 +2,22 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
   <title>Bamboo Fort</title>
-  <link rel="stylesheet" href="style.css">
+  <style>
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body { margin: 0; overflow: hidden; color: #fffaf0; background: #061015; font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; touch-action: none; }
+    .hud { position: fixed; inset: 0 0 auto 0; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 58px; padding: 10px 12px; background: rgba(6,16,21,.76); border-bottom: 1px solid rgba(255,250,240,.16); backdrop-filter: blur(10px); }
+    .hud strong { display: block; font-size: 14px; } .hud span { color: rgba(255,250,240,.72); font-size: 12px; } .hud-actions { display: flex; align-items: center; gap: 8px; } .score { min-width: 64px; text-align: right; font-weight: 850; }
+    button { min-height: 36px; padding: 0 12px; border: 1px solid rgba(255,208,138,.6); border-radius: 8px; color: #061015; background: #ffd08a; font: 800 13px/1 ui-sans-serif, system-ui, sans-serif; }
+    canvas { display: block; width: 100vw; height: calc(100vh - 58px); margin-top: 58px; touch-action: none; }
+  </style>
 </head>
-<body>
-  <div class="app-shell">
-    <main class="game-column">
-      <header class="topbar">
-        <div>
-          <h1>Bamboo Fort</h1>
-          <p>Build a bamboo stronghold and last the night.</p>
-        </div>
-        <div class="topbar-actions">
-          <button id="pauseButton" type="button">Pause</button>
-          <button id="craftButton" type="button">Craft</button>
-        </div>
-      </header>
-
-      <div class="canvas-frame">
-        <canvas id="gameCanvas" width="960" height="640" aria-label="Bamboo Fort game world"></canvas>
-
-        <div id="worldStatus" class="world-status">
-          <div class="world-status-head">
-            <span>Win Condition</span>
-            <span id="worldGoalState" class="world-goal-state">In Progress</span>
-          </div>
-          <div id="worldGoalBanner" class="world-goal-banner">Survive 5:00 and finish the fort.</div>
-          <div class="goal-track">
-            <div class="goal-track-header">
-              <span>Survival</span>
-              <span id="goalSurvivalText">0%</span>
-            </div>
-            <div class="mini-bar">
-              <div id="goalSurvivalFill" class="mini-bar-fill"></div>
-            </div>
-          </div>
-          <div class="goal-checklist">
-            <div id="goalWallsRow" class="goal-item">
-              <span>10 Fort Walls</span>
-              <strong id="goalWallsText">0 / 10</strong>
-            </div>
-            <div id="goalGateRow" class="goal-item">
-              <span>1 Fort Gate</span>
-              <strong id="goalGateText">0 / 1</strong>
-            </div>
-          </div>
-        </div>
-
-        <div id="screenOverlay" class="overlay visible">
-          <div id="screenCard" class="screen-card"></div>
-        </div>
-
-        <div id="craftMenu" class="modal hidden">
-          <div class="modal-card">
-            <div class="modal-header">
-              <h2>Crafting</h2>
-              <button id="closeCraftButton" type="button">Close</button>
-            </div>
-            <div id="craftSummary" class="craft-summary"></div>
-            <div id="craftRecipes" class="recipe-list"></div>
-          </div>
-        </div>
-      </div>
-    </main>
-
-    <aside class="hud-panel">
-      <section class="panel-block">
-        <div class="panel-heading">
-          <span>Status</span>
-          <span id="timeText">05:00</span>
-        </div>
-        <div class="health-bar">
-          <div id="healthFill" class="health-fill"></div>
-        </div>
-        <div id="healthText" class="minor-text">Health 100 / 100</div>
-        <div id="objectiveText" class="objective-text"></div>
-      </section>
-
-      <section class="panel-block">
-        <div class="panel-heading">
-          <span>Inventory</span>
-          <span class="minor-text">Press E to gather</span>
-        </div>
-        <div id="inventoryGrid" class="inventory-grid"></div>
-      </section>
-
-      <section class="panel-block">
-        <div class="panel-heading">
-          <span>Build</span>
-          <span class="minor-text">Click, drag, or Space</span>
-        </div>
-        <div class="build-selector">
-          <button class="build-button" data-build="wall" type="button">Fort Wall</button>
-          <button class="build-button" data-build="gate" type="button">Fort Gate</button>
-        </div>
-        <div id="buildHint" class="minor-text"></div>
-      </section>
-
-      <section class="panel-block compact-block">
-        <div class="panel-heading">
-          <span>Controls</span>
-        </div>
-        <ul class="controls-list">
-          <li>Move: WASD or arrow keys</li>
-          <li>Pickup: E</li>
-          <li>Craft: C</li>
-          <li>Build drag: hold left mouse</li>
-          <li>Attack: F</li>
-          <li>Block: Shift</li>
-          <li>Pause: Esc</li>
-        </ul>
-      </section>
-    </aside>
-  </div>
-
-  <script src="game.js"></script>
+<body data-bonus-game="coil" data-game-title="Bamboo Fort" data-game-subtitle="Collect bamboo targets, dodge pests, and keep building the fort.">
+  <div class="hud"><div><strong>Bamboo Fort</strong><span id="status">Tap Start</span></div><div class="hud-actions"><button id="start" type="button">Start</button><div class="score">Score <span id="score">0</span></div></div></div>
+  <canvas id="game" aria-label="Bamboo Fort game"></canvas>
+  <script src="../bonus-mobile-game.js"></script>
+  <script src="../mobile-controls.js"></script>
 </body>
 </html>

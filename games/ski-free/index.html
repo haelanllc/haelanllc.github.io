@@ -1,32 +1,63 @@
-<!DOCTYPE html>
-<html>
-    <head>
-        <meta charset="utf-8">
-        <title>Skifree.js</title>
-        <meta name="description" content="A JavaScript port of Chris Pirih's classic SkiFree game, by Dan Hough">
-        <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=0">
-
-        <link rel="apple-touch-icon-precomposed" sizes="144x144" href="apple-touch-icon-144x144-precomposed.png">
-        <link rel="apple-touch-icon-precomposed" sizes="114x114" href="apple-touch-icon-114x114-precomposed.png">
-        <link rel="apple-touch-icon-precomposed" sizes="72x72" href="apple-touch-icon-72x72-precomposed.png">
-        <link rel="apple-touch-icon-precomposed" href="apple-touch-icon-57x57-precomposed.png">
-        <link rel="shortcut icon" href="apple-touch-icon.png">
-
-        <!-- Tile icon for Win8 (144x144 + tile color) -->
-        <meta name="msapplication-TileImage" content="apple-touch-icon-144x144-precomposed.png">
-        <meta name="msapplication-TileColor" content="#222222">
-
-        <!-- Place favicon.ico and apple-touch-icon.png in the root directory -->
-
-        <link rel="stylesheet" href="css/normalize.css">
-        <link rel="stylesheet" href="css/main.css">
-        <link rel="stylesheet" href="css/skifree.css">
-    </head>
-    <body>
-
-        <!-- Add your site or application content here -->
-        <canvas id="skifree-canvas" tabindex="0"></canvas>
-
-        <script src="dist/skifree.js"></script>
-    </body>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <title>Ski Free</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      overflow: hidden;
+      color: #fffaf0;
+      background: #061015;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      touch-action: none;
+    }
+    .hud {
+      position: fixed;
+      inset: 0 0 auto 0;
+      z-index: 2;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      min-height: 58px;
+      padding: 10px 12px;
+      background: rgba(6, 16, 21, 0.76);
+      border-bottom: 1px solid rgba(255, 250, 240, 0.16);
+      backdrop-filter: blur(10px);
+    }
+    .hud strong { display: block; font-size: 14px; }
+    .hud span { color: rgba(255, 250, 240, 0.72); font-size: 12px; }
+    .hud-actions { display: flex; align-items: center; gap: 8px; }
+    .score { min-width: 64px; text-align: right; font-weight: 850; }
+    button {
+      min-height: 36px;
+      padding: 0 12px;
+      border: 1px solid rgba(255, 208, 138, 0.6);
+      border-radius: 8px;
+      color: #061015;
+      background: #ffd08a;
+      font: 800 13px/1 ui-sans-serif, system-ui, sans-serif;
+    }
+    canvas {
+      display: block;
+      width: 100vw;
+      height: calc(100vh - 58px);
+      margin-top: 58px;
+      touch-action: none;
+    }
+  </style>
+</head>
+<body data-bonus-game="ski" data-game-title="Ski Free" data-game-subtitle="Carve downhill and dodge the trees.">
+  <div class="hud">
+    <div><strong>Ski Free</strong><span id="status">Tap Start</span></div>
+    <div class="hud-actions"><button id="start" type="button">Start</button><div class="score">Score <span id="score">0</span></div></div>
+  </div>
+  <canvas id="game" aria-label="Ski Free game"></canvas>
+  <script src="../bonus-mobile-game.js"></script>
+  <script src="../mobile-controls.js"></script>
+</body>
 </html>

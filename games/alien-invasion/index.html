@@ -1,19 +1,63 @@
-<!DOCTYPE HTML>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"/>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
   <title>Alien Invasion</title>
-  <link rel="stylesheet" href="base.css" type="text/css" />
-  <meta name="viewport" content="width=device-width, user-scalable=0, minimum-scale=1.0, maximum-scale=1.0"/>
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <style>
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      overflow: hidden;
+      color: #fffaf0;
+      background: #061015;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      touch-action: none;
+    }
+    .hud {
+      position: fixed;
+      inset: 0 0 auto 0;
+      z-index: 2;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      min-height: 58px;
+      padding: 10px 12px;
+      background: rgba(6, 16, 21, 0.76);
+      border-bottom: 1px solid rgba(255, 250, 240, 0.16);
+      backdrop-filter: blur(10px);
+    }
+    .hud strong { display: block; font-size: 14px; }
+    .hud span { color: rgba(255, 250, 240, 0.72); font-size: 12px; }
+    .hud-actions { display: flex; align-items: center; gap: 8px; }
+    .score { min-width: 64px; text-align: right; font-weight: 850; }
+    button {
+      min-height: 36px;
+      padding: 0 12px;
+      border: 1px solid rgba(255, 208, 138, 0.6);
+      border-radius: 8px;
+      color: #061015;
+      background: #ffd08a;
+      font: 800 13px/1 ui-sans-serif, system-ui, sans-serif;
+    }
+    canvas {
+      display: block;
+      width: 100vw;
+      height: calc(100vh - 58px);
+      margin-top: 58px;
+      touch-action: none;
+    }
+  </style>
 </head>
-<body>
-  <div id='container'>
-    <canvas id='game' width='320' height='480'></canvas>
+<body data-bonus-game="invaders" data-game-title="Alien Invasion" data-game-subtitle="Slide, fire, and clear the invader wave.">
+  <div class="hud">
+    <div><strong>Alien Invasion</strong><span id="status">Tap Start</span></div>
+    <div class="hud-actions"><button id="start" type="button">Start</button><div class="score">Score <span id="score">0</span></div></div>
   </div>
-  <script src='engine.js'></script>
-  <script src='game.js'></script>
+  <canvas id="game" aria-label="Alien Invasion game"></canvas>
+  <script src="../bonus-mobile-game.js"></script>
+  <script src="../mobile-controls.js"></script>
 </body>
 </html>
-
