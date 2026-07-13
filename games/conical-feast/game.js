@@ -133,6 +133,21 @@
     { name: "Brute Trench", short: "Trench", x: 1630, y: 710, w: 880, h: 760, level: 5, color: "rgba(255,111,125,0.06)" },
   ];
 
+  const CURRENTS = [
+    { id: "den-drift", x1: 320, y1: 720, x2: 980, y2: 430, width: 82, strength: 72, color: "rgba(141,255,183,0.18)" },
+    { id: "kelp-river", x1: 760, y1: 210, x2: 1520, y2: 620, width: 96, strength: 92, color: "rgba(91,231,214,0.2)" },
+    { id: "vent-rise", x1: 1240, y1: 1320, x2: 1660, y2: 820, width: 110, strength: 84, color: "rgba(255,179,95,0.2)" },
+    { id: "trench-pull", x1: 1840, y1: 560, x2: 2320, y2: 1280, width: 120, strength: 66, color: "rgba(255,111,125,0.16)" },
+  ];
+
+  const LANDMARKS = [
+    { id: "moon-gate", name: "Moon Gate", x: 650, y: 420, radius: 72, color: "#b9e9ff", type: "gate" },
+    { id: "lantern-wreck", name: "Lantern Wreck", x: 1320, y: 260, radius: 82, color: "#ffd08a", type: "wreck" },
+    { id: "pearl-shrine", name: "Pearl Shrine", x: 1120, y: 1070, radius: 78, color: "#fff0b6", type: "shrine" },
+    { id: "thermal-crown", name: "Thermal Crown", x: 1580, y: 1180, radius: 90, color: "#ffb35f", type: "crown" },
+    { id: "trench-eye", name: "Trench Eye", x: 2180, y: 1040, radius: 96, color: "#ff6f7d", type: "eye" },
+  ];
+
   const upgradeLabels = {
     capacity: "Capacity",
     speed: "Speed",
@@ -150,6 +165,28 @@
     return d - Math.PI;
   };
   const pct = (value, max) => `${clamp((value / max) * 100, 0, 100).toFixed(0)}%`;
+  const segmentInfo = (px, py, ax, ay, bx, by) => {
+    const vx = bx - ax;
+    const vy = by - ay;
+    const lengthSq = vx * vx + vy * vy || 1;
+    const t = clamp(((px - ax) * vx + (py - ay) * vy) / lengthSq, 0, 1);
+    const x = ax + vx * t;
+    const y = ay + vy * t;
+    return {
+      x,
+      y,
+      t,
+      distance: Math.hypot(px - x, py - y),
+      nx: vx / Math.sqrt(lengthSq),
+      ny: vy / Math.sqrt(lengthSq),
+    };
+  };
+  const isNearCamera = (x, y, margin = 120) => (
+    x >= state.camera.x - margin &&
+    x <= state.camera.x + state.camera.w + margin &&
+    y >= state.camera.y - margin &&
+    y <= state.camera.y + state.camera.h + margin
+  );
 
   class RNG {
     constructor(seed) {
@@ -184,6 +221,8 @@
     const kelp = [];
     const vents = [];
     const stones = [];
+    const lights = [];
+    const pearls = [];
 
     for (let i = 0; i < 95; i += 1) {
       coral.push({
@@ -232,7 +271,38 @@
       });
     }
 
-    return { coral, kelp, vents, stones };
+    for (let i = 0; i < 150; i += 1) {
+      const zone = BIOMES[Math.floor(rng.range(0, BIOMES.length))];
+      lights.push({
+        x: rng.range(zone.x + 40, zone.x + zone.w - 40),
+        y: rng.range(zone.y + 40, zone.y + zone.h - 40),
+        r: rng.range(1.4, 4.8),
+        phase: rng.range(0, TAU),
+        color: rng.pickWeighted([
+          { value: "rgba(141,255,183,0.55)", weight: 3 },
+          { value: "rgba(91,231,214,0.55)", weight: 4 },
+          { value: "rgba(255,208,138,0.5)", weight: 2 },
+          { value: "rgba(255,159,134,0.46)", weight: 1 },
+        ]).value,
+      });
+    }
+
+    for (const landmark of LANDMARKS) {
+      const amount = landmark.id === "trench-eye" ? 5 : 4;
+      for (let i = 0; i < amount; i += 1) {
+        const angle = rng.range(0, TAU);
+        const distance = rng.range(landmark.radius * 1.05, landmark.radius * 2.2);
+        pearls.push({
+          x: clamp(landmark.x + Math.cos(angle) * distance, 54, WORLD.w - 54),
+          y: clamp(landmark.y + Math.sin(angle) * distance, 54, WORLD.h - 54),
+          value: Math.round(rng.range(5, 13) + landmark.radius * 0.035),
+          phase: rng.range(0, TAU),
+          collected: false,
+        });
+      }
+    }
+
+    return { coral, kelp, vents, stones, lights, pearls };
   }
 
   const state = {
@@ -242,6 +312,7 @@
     spawnTimer: 0,
     messageTimer: 0,
     message: "",
+    lastLandmark: "",
     rng: new RNG(0xC0FFEE),
     world: { ...WORLD },
     viewport: { w: 1280, h: 720 },
@@ -267,6 +338,7 @@
       hurtPulse: 0,
       basePulse: 0,
       bitePulse: 0,
+      currentPulse: 0,
       lastCaptureAt: 0,
     },
     prey: [],
@@ -423,6 +495,8 @@
     state.prey.length = 0;
     state.particles.length = 0;
     state.floaters.length = 0;
+    state.lastLandmark = "";
+    for (const pearl of state.overworld.pearls) pearl.collected = false;
     const base = homebase();
     const s = stats();
     Object.assign(state.player, {
@@ -437,6 +511,7 @@
       hurtPulse: 0,
       basePulse: 0,
       bitePulse: 0,
+      currentPulse: 0,
     });
 
     updateCamera(true);
@@ -494,12 +569,16 @@
     state.player.hurtPulse = Math.max(0, state.player.hurtPulse - dt);
     state.player.basePulse = Math.max(0, state.player.basePulse - dt);
     state.player.bitePulse = Math.max(0, state.player.bitePulse - dt);
+    state.player.currentPulse = Math.max(0, state.player.currentPulse - dt);
 
     updatePlayer(dt);
+    updateCurrentLanes(dt);
     updatePrey(dt);
     updateCapture(dt);
     updateCollisions(dt);
     updateHomebase(dt);
+    updatePearls(dt);
+    updateLandmarks();
     updateParticles(dt);
     updateSpawning(dt);
   }
@@ -526,6 +605,74 @@
     p.y += p.vy * dt;
 
     keepPlayerInBounds();
+  }
+
+  function updateCurrentLanes(dt) {
+    const p = state.player;
+    let strongest = 0;
+
+    for (const current of CURRENTS) {
+      const info = segmentInfo(p.x, p.y, current.x1, current.y1, current.x2, current.y2);
+      if (info.distance > current.width) continue;
+
+      const force = (1 - info.distance / current.width) * current.strength;
+      p.x += info.nx * force * dt;
+      p.y += info.ny * force * dt;
+      p.vx += info.nx * force * 0.18;
+      p.vy += info.ny * force * 0.18;
+      strongest = Math.max(strongest, force / current.strength);
+    }
+
+    if (strongest > 0) {
+      p.currentPulse = Math.max(p.currentPulse, strongest * 0.28);
+      keepPlayerInBounds();
+    }
+  }
+
+  function updatePearls(dt) {
+    const s = stats();
+    const p = state.player;
+
+    for (const pearl of state.overworld.pearls) {
+      if (pearl.collected) continue;
+      const d = Math.hypot(p.x - pearl.x, p.y - pearl.y);
+      if (d > s.radius + 18) continue;
+
+      const room = s.maxCargo - p.cargo;
+      if (room <= 0.05) {
+        if (state.time % 0.8 < dt) {
+          p.cargoPulse = 0.28;
+          setMessage("Cargo full");
+        }
+        continue;
+      }
+
+      const gained = Math.min(s.maxCargo - p.cargo, pearl.value);
+      p.cargo += gained;
+      p.cargoPulse = 0.3;
+      pearl.collected = true;
+      addFloater(pearl.x, pearl.y, `Pearl +${Math.round(gained)}`, COLORS.coneLine);
+      burst(pearl.x, pearl.y, COLORS.coneLine, 18);
+    }
+  }
+
+  function updateLandmarks() {
+    const p = state.player;
+    let active = "";
+
+    for (const landmark of LANDMARKS) {
+      const d = Math.hypot(p.x - landmark.x, p.y - landmark.y);
+      if (d > landmark.radius + 58) continue;
+      active = landmark.id;
+      if (state.lastLandmark !== landmark.id) {
+        state.lastLandmark = landmark.id;
+        setMessage(landmark.name);
+        burst(landmark.x, landmark.y, landmark.color, 12);
+      }
+      break;
+    }
+
+    if (!active && state.lastLandmark) state.lastLandmark = "";
   }
 
   function keepPlayerInBounds() {
@@ -947,6 +1094,9 @@
       ctx.fillText(biome.name.toUpperCase(), biome.x + 28, biome.y + 38);
     }
 
+    drawCurrentLanes();
+    drawBiolumeLights();
+
     for (const stone of state.overworld.stones) {
       drawDenRock(stone.x, stone.y, stone.w, stone.h, stone.color);
     }
@@ -963,7 +1113,234 @@
       drawVent(vent);
     }
 
+    drawLandmarks();
+    drawPearls();
     drawCurrentPath();
+    ctx.restore();
+  }
+
+  function drawCurrentLanes() {
+    ctx.save();
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+
+    for (const current of CURRENTS) {
+      const dx = current.x2 - current.x1;
+      const dy = current.y2 - current.y1;
+      const length = Math.hypot(dx, dy) || 1;
+      const nx = dx / length;
+      const ny = dy / length;
+      const sideX = -ny;
+      const sideY = nx;
+      const wave = Math.sin(state.time * 1.6 + current.x1 * 0.01) * 18;
+
+      ctx.strokeStyle = current.color;
+      ctx.lineWidth = current.width;
+      ctx.globalAlpha = 0.55;
+      ctx.beginPath();
+      ctx.moveTo(current.x1 + sideX * wave, current.y1 + sideY * wave);
+      ctx.bezierCurveTo(
+        current.x1 + dx * 0.34 - sideX * current.width * 0.42,
+        current.y1 + dy * 0.34 - sideY * current.width * 0.42,
+        current.x1 + dx * 0.66 + sideX * current.width * 0.42,
+        current.y1 + dy * 0.66 + sideY * current.width * 0.42,
+        current.x2 - sideX * wave,
+        current.y2 - sideY * wave,
+      );
+      ctx.stroke();
+
+      ctx.globalAlpha = 0.82;
+      ctx.strokeStyle = "rgba(255,250,240,0.16)";
+      ctx.lineWidth = 2;
+      ctx.setLineDash([8, 18]);
+      ctx.lineDashOffset = -state.time * 42;
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      for (let i = 0; i < 8; i += 1) {
+        const t = (i / 8 + state.time * 0.12) % 1;
+        const x = current.x1 + dx * t + sideX * Math.sin(t * TAU * 2 + state.time * 2) * current.width * 0.24;
+        const y = current.y1 + dy * t + sideY * Math.sin(t * TAU * 2 + state.time * 2) * current.width * 0.24;
+        ctx.fillStyle = "rgba(255,250,240,0.24)";
+        ctx.beginPath();
+        ctx.arc(x, y, 3.5 + Math.sin(state.time * 3 + i) * 1.2, 0, TAU);
+        ctx.fill();
+      }
+    }
+
+    ctx.restore();
+  }
+
+  function drawBiolumeLights() {
+    ctx.save();
+    for (const light of state.overworld.lights) {
+      if (!isNearCamera(light.x, light.y, 80)) continue;
+      const pulse = 0.45 + Math.sin(state.time * 1.7 + light.phase) * 0.22;
+      ctx.globalAlpha = clamp(pulse, 0.18, 0.72);
+      ctx.fillStyle = light.color;
+      ctx.beginPath();
+      ctx.arc(light.x, light.y, light.r * (1.6 + pulse), 0, TAU);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function drawLandmarks() {
+    for (const landmark of LANDMARKS) {
+      if (!isNearCamera(landmark.x, landmark.y, landmark.radius + 180)) continue;
+      const pulse = 0.9 + Math.sin(state.time * 1.8 + landmark.radius) * 0.1;
+
+      ctx.save();
+      ctx.translate(landmark.x, landmark.y);
+
+      const glow = ctx.createRadialGradient(0, 0, landmark.radius * 0.1, 0, 0, landmark.radius * 1.65);
+      glow.addColorStop(0, `${hexToRgb(landmark.color)},0.26)`);
+      glow.addColorStop(1, `${hexToRgb(landmark.color)},0)`);
+      ctx.fillStyle = glow;
+      ctx.beginPath();
+      ctx.arc(0, 0, landmark.radius * 1.58 * pulse, 0, TAU);
+      ctx.fill();
+
+      ctx.strokeStyle = `${hexToRgb(landmark.color)},0.58)`;
+      ctx.lineWidth = 2;
+      ctx.setLineDash([5, 12]);
+      ctx.beginPath();
+      ctx.arc(0, 0, landmark.radius * pulse, 0, TAU);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      if (landmark.type === "gate") drawMoonGate(landmark);
+      if (landmark.type === "wreck") drawLanternWreck(landmark);
+      if (landmark.type === "shrine") drawPearlShrine(landmark);
+      if (landmark.type === "crown") drawThermalCrown(landmark);
+      if (landmark.type === "eye") drawTrenchEye(landmark);
+
+      ctx.fillStyle = "rgba(255,250,240,0.72)";
+      ctx.font = "800 10px ui-sans-serif, system-ui";
+      ctx.textAlign = "center";
+      ctx.fillText(landmark.name.toUpperCase(), 0, landmark.radius + 22);
+      ctx.restore();
+    }
+  }
+
+  function hexToRgb(hex) {
+    const value = Number.parseInt(hex.slice(1), 16);
+    return `rgba(${(value >> 16) & 255},${(value >> 8) & 255},${value & 255}`;
+  }
+
+  function drawMoonGate(landmark) {
+    ctx.strokeStyle = `${hexToRgb(landmark.color)},0.82)`;
+    ctx.lineWidth = 9;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.arc(0, 8, 38, Math.PI * 0.08, Math.PI * 0.92, true);
+    ctx.stroke();
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = "rgba(255,250,240,0.34)";
+    ctx.beginPath();
+    ctx.moveTo(-44, 28);
+    ctx.lineTo(44, 28);
+    ctx.stroke();
+  }
+
+  function drawLanternWreck(landmark) {
+    ctx.fillStyle = "rgba(52,72,76,0.82)";
+    ctx.beginPath();
+    ctx.moveTo(-54, 18);
+    ctx.lineTo(50, -2);
+    ctx.lineTo(38, 28);
+    ctx.lineTo(-36, 38);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = `${hexToRgb(landmark.color)},0.78)`;
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(-18, -42);
+    ctx.lineTo(-8, 22);
+    ctx.moveTo(-34, -18);
+    ctx.lineTo(28, -30);
+    ctx.stroke();
+    ctx.fillStyle = "rgba(255,208,138,0.78)";
+    ctx.beginPath();
+    ctx.arc(26, -14, 8 + Math.sin(state.time * 3) * 1.5, 0, TAU);
+    ctx.fill();
+  }
+
+  function drawPearlShrine(landmark) {
+    ctx.strokeStyle = `${hexToRgb(landmark.color)},0.76)`;
+    ctx.lineWidth = 5;
+    for (let i = 0; i < 5; i += 1) {
+      const angle = -Math.PI * 0.85 + i * 0.42;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(angle) * 26, Math.sin(angle) * 26 + 22);
+      ctx.lineTo(Math.cos(angle) * 52, Math.sin(angle) * 52 + 6);
+      ctx.stroke();
+    }
+    const shell = ctx.createRadialGradient(-8, -10, 2, 0, 0, 34);
+    shell.addColorStop(0, "rgba(255,250,240,0.96)");
+    shell.addColorStop(1, "rgba(255,208,138,0.32)");
+    ctx.fillStyle = shell;
+    ctx.beginPath();
+    ctx.arc(0, 0, 30 + Math.sin(state.time * 2) * 2, 0, TAU);
+    ctx.fill();
+  }
+
+  function drawThermalCrown(landmark) {
+    for (let i = 0; i < 7; i += 1) {
+      const angle = (i / 7) * TAU + state.time * 0.06;
+      const inner = landmark.radius * 0.22;
+      const outer = landmark.radius * (0.48 + (i % 2) * 0.14);
+      ctx.strokeStyle = i % 2 ? "rgba(255,208,138,0.68)" : `${hexToRgb(landmark.color)},0.72)`;
+      ctx.lineWidth = 6;
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(angle) * inner, Math.sin(angle) * inner);
+      ctx.lineTo(Math.cos(angle) * outer, Math.sin(angle) * outer);
+      ctx.stroke();
+    }
+    ctx.fillStyle = "rgba(255,179,95,0.28)";
+    ctx.beginPath();
+    ctx.arc(0, 0, 28 + Math.sin(state.time * 3) * 3, 0, TAU);
+    ctx.fill();
+  }
+
+  function drawTrenchEye(landmark) {
+    ctx.fillStyle = "rgba(6,16,21,0.76)";
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 54, 28, 0, 0, TAU);
+    ctx.fill();
+    ctx.strokeStyle = `${hexToRgb(landmark.color)},0.76)`;
+    ctx.lineWidth = 4;
+    ctx.stroke();
+    ctx.fillStyle = `${hexToRgb(landmark.color)},0.62)`;
+    ctx.beginPath();
+    ctx.arc(Math.sin(state.time * 1.2) * 8, 0, 14 + Math.sin(state.time * 2.6) * 2, 0, TAU);
+    ctx.fill();
+    ctx.fillStyle = "rgba(255,250,240,0.55)";
+    ctx.beginPath();
+    ctx.arc(5, -5, 4, 0, TAU);
+    ctx.fill();
+  }
+
+  function drawPearls() {
+    ctx.save();
+    for (const pearl of state.overworld.pearls) {
+      if (pearl.collected || !isNearCamera(pearl.x, pearl.y, 80)) continue;
+      const pulse = 0.9 + Math.sin(state.time * 3.4 + pearl.phase) * 0.14;
+      ctx.fillStyle = "rgba(255,208,138,0.18)";
+      ctx.beginPath();
+      ctx.arc(pearl.x, pearl.y, 20 * pulse, 0, TAU);
+      ctx.fill();
+      ctx.fillStyle = "rgba(255,250,240,0.92)";
+      ctx.beginPath();
+      ctx.arc(pearl.x, pearl.y, 6.5 * pulse, 0, TAU);
+      ctx.fill();
+      ctx.strokeStyle = COLORS.coneLine;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(pearl.x, pearl.y, 12 * pulse, 0, TAU);
+      ctx.stroke();
+    }
     ctx.restore();
   }
 
@@ -1180,10 +1557,21 @@
     const hurt = p.hurtPulse > 0 ? p.hurtPulse / 0.16 : 0;
     const cargo = p.cargoPulse > 0 ? p.cargoPulse / 0.28 : 0;
     const bite = p.bitePulse > 0 ? p.bitePulse / 0.16 : 0;
+    const current = p.currentPulse > 0 ? p.currentPulse / 0.28 : 0;
 
     ctx.save();
     ctx.translate(p.x, p.y);
     ctx.rotate(p.angle);
+
+    if (current > 0) {
+      ctx.strokeStyle = `rgba(91,231,214,${0.24 * current})`;
+      ctx.lineWidth = Math.max(2, s.radius * 0.12);
+      ctx.setLineDash([4, 8]);
+      ctx.beginPath();
+      ctx.arc(0, 0, s.radius * (1.45 + current * 0.36), 0, TAU);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
 
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
@@ -1365,6 +1753,21 @@
     ctx.strokeStyle = "rgba(255,250,240,0.34)";
     ctx.lineWidth = 1;
     ctx.strokeRect(x + state.camera.x * sx, y + state.camera.y * sy, state.camera.w * sx, state.camera.h * sy);
+
+    ctx.fillStyle = "rgba(255,208,138,0.72)";
+    for (const landmark of LANDMARKS) {
+      ctx.beginPath();
+      ctx.rect(x + landmark.x * sx - 2.5, y + landmark.y * sy - 2.5, 5, 5);
+      ctx.fill();
+    }
+
+    ctx.fillStyle = "rgba(255,250,240,0.66)";
+    for (const pearl of state.overworld.pearls) {
+      if (pearl.collected) continue;
+      ctx.beginPath();
+      ctx.arc(x + pearl.x * sx, y + pearl.y * sy, 1.5, 0, TAU);
+      ctx.fill();
+    }
 
     ctx.fillStyle = COLORS.home;
     ctx.beginPath();
