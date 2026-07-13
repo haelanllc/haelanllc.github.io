@@ -120,6 +120,19 @@
     size: 38,
   };
 
+  const WORLD = {
+    w: 2600,
+    h: 1600,
+  };
+
+  const BIOMES = [
+    { name: "Den Reef", short: "Den", x: 0, y: 0, w: 760, h: 700, level: 1, color: "rgba(141,255,183,0.08)" },
+    { name: "Kelp Run", short: "Kelp", x: 620, y: 70, w: 900, h: 680, level: 2, color: "rgba(91,231,214,0.07)" },
+    { name: "Open Blue", short: "Blue", x: 1340, y: 90, w: 780, h: 660, level: 3, color: "rgba(185,233,255,0.06)" },
+    { name: "Ember Vents", short: "Vents", x: 930, y: 760, w: 760, h: 630, level: 4, color: "rgba(255,179,95,0.07)" },
+    { name: "Brute Trench", short: "Trench", x: 1630, y: 710, w: 880, h: 760, level: 5, color: "rgba(255,111,125,0.06)" },
+  ];
+
   const upgradeLabels = {
     capacity: "Capacity",
     speed: "Speed",
@@ -165,6 +178,63 @@
     }
   }
 
+  function buildOverworld() {
+    const rng = new RNG(0xA11CE);
+    const coral = [];
+    const kelp = [];
+    const vents = [];
+    const stones = [];
+
+    for (let i = 0; i < 95; i += 1) {
+      coral.push({
+        x: rng.range(70, WORLD.w - 70),
+        y: rng.range(120, WORLD.h - 70),
+        r: rng.range(10, 34),
+        lean: rng.range(-38, 38),
+        color: rng.pickWeighted([
+          { value: "#8dffb7", weight: 4 },
+          { value: "#ffd08a", weight: 3 },
+          { value: "#ff9f86", weight: 2 },
+          { value: "#5be7d6", weight: 3 },
+        ]).value,
+      });
+    }
+
+    for (let i = 0; i < 62; i += 1) {
+      kelp.push({
+        x: rng.range(560, 1540),
+        y: rng.range(120, 790),
+        h: rng.range(66, 170),
+        phase: rng.range(0, TAU),
+      });
+    }
+
+    for (let i = 0; i < 24; i += 1) {
+      vents.push({
+        x: rng.range(980, 1880),
+        y: rng.range(860, 1490),
+        r: rng.range(10, 24),
+        phase: rng.range(0, TAU),
+      });
+    }
+
+    for (let i = 0; i < 72; i += 1) {
+      stones.push({
+        x: rng.range(40, WORLD.w - 40),
+        y: rng.range(520, WORLD.h - 30),
+        w: rng.range(18, 70),
+        h: rng.range(10, 38),
+        color: rng.pickWeighted([
+          { value: "#173e4e", weight: 4 },
+          { value: "#285665", weight: 3 },
+          { value: "#2d6974", weight: 2 },
+        ]).value,
+      });
+    }
+
+    return { coral, kelp, vents, stones };
+  }
+
   const state = {
     running: false,
     lastTs: 0,
@@ -173,7 +243,10 @@
     messageTimer: 0,
     message: "",
     rng: new RNG(0xC0FFEE),
-    world: { w: 1280, h: 720 },
+    world: { ...WORLD },
+    viewport: { w: 1280, h: 720 },
+    camera: { x: 0, y: 0, w: 1280, h: 720 },
+    overworld: buildOverworld(),
     banked: 0,
     upgrades: {
       capacity: 0,
@@ -208,6 +281,8 @@
     pointer: {
       x: state.player.x + 100,
       y: state.player.y,
+      sx: 0,
+      sy: 0,
       down: false,
       has: false,
     },
@@ -239,12 +314,35 @@
     return clamp(1 + Math.floor((state.banked + upgradeMass * 42) / 145), 1, 6);
   }
 
-  function homebase() {
-    const { w, h } = state.world;
+  function biomeAt(x, y) {
+    for (let i = BIOMES.length - 1; i >= 0; i -= 1) {
+      const biome = BIOMES[i];
+      if (x >= biome.x && x <= biome.x + biome.w && y >= biome.y && y <= biome.y + biome.h) {
+        return biome;
+      }
+    }
+
+    const distanceLevel = 1 + Math.floor((x / state.world.w) * 3) + Math.floor((y / state.world.h) * 2);
     return {
-      x: clamp(w * 0.14, 86, 190),
-      y: clamp(h * 0.68, 230, h - 122),
-      radius: clamp(Math.min(w, h) * 0.09, 48, 68),
+      name: "Open Reef",
+      short: "Open",
+      level: clamp(distanceLevel, 1, 6),
+      color: "rgba(255,250,240,0.04)",
+    };
+  }
+
+  function territoryLevel(x, y) {
+    const base = homebase();
+    const distance = Math.hypot(x - base.x, y - base.y);
+    const distanceLevel = 1 + Math.floor(distance / 430);
+    return clamp(Math.max(depthLevel(), biomeAt(x, y).level, distanceLevel), 1, 6);
+  }
+
+  function homebase() {
+    return {
+      x: 210,
+      y: 820,
+      radius: 76,
     };
   }
 
@@ -259,18 +357,59 @@
     if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) {
       canvas.width = pixelWidth;
       canvas.height = pixelHeight;
-      state.world.w = width;
-      state.world.h = height;
+      state.viewport.w = width;
+      state.viewport.h = height;
+      state.camera.w = width;
+      state.camera.h = height;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       keepPlayerInBounds();
+      updateCamera(true);
     }
+  }
+
+  function screenToWorld(x, y) {
+    return {
+      x: clamp(state.camera.x + x, 0, state.world.w),
+      y: clamp(state.camera.y + y, 0, state.world.h),
+    };
+  }
+
+  function refreshPointerWorld() {
+    const pointer = input.pointer;
+    if (!pointer.has) return;
+    const world = screenToWorld(pointer.sx, pointer.sy);
+    pointer.x = world.x;
+    pointer.y = world.y;
   }
 
   function setPointerFromEvent(event) {
     const rect = canvas.getBoundingClientRect();
-    input.pointer.x = clamp(event.clientX - rect.left, 0, rect.width);
-    input.pointer.y = clamp(event.clientY - rect.top, 0, rect.height);
+    input.pointer.sx = clamp(event.clientX - rect.left, 0, rect.width);
+    input.pointer.sy = clamp(event.clientY - rect.top, 0, rect.height);
     input.pointer.has = true;
+    refreshPointerWorld();
+  }
+
+  function updateCamera(instant = false) {
+    const c = state.camera;
+    const p = state.player;
+    c.w = state.viewport.w;
+    c.h = state.viewport.h;
+
+    const maxX = Math.max(0, state.world.w - c.w);
+    const maxY = Math.max(0, state.world.h - c.h);
+    const targetX = clamp(p.x - c.w * 0.5, 0, maxX);
+    const targetY = clamp(p.y - c.h * 0.5, 0, maxY);
+
+    if (instant) {
+      c.x = targetX;
+      c.y = targetY;
+    } else {
+      c.x = lerp(c.x, targetX, 0.12);
+      c.y = lerp(c.y, targetY, 0.12);
+    }
+
+    refreshPointerWorld();
   }
 
   function startDive() {
@@ -300,8 +439,10 @@
       bitePulse: 0,
     });
 
-    for (let i = 0; i < 18; i += 1) spawnPrey(true);
-    setMessage("Feast started");
+    updateCamera(true);
+
+    for (let i = 0; i < 38; i += 1) spawnPrey(true);
+    setMessage("Overworld opened");
   }
 
   function buyUpgrade(key) {
@@ -366,6 +507,7 @@
   function updatePlayer(dt) {
     const s = stats();
     const p = state.player;
+    refreshPointerWorld();
     const mv = keyVector();
 
     if (input.pointer.has) {
@@ -578,38 +720,36 @@
   }
 
   function updateSpawning(dt) {
-    const targetCount = 24 + depthLevel() * 4;
+    const targetCount = 40 + depthLevel() * 6;
     state.spawnTimer -= dt;
     if (state.spawnTimer <= 0 && state.prey.length < targetCount) {
-      state.spawnTimer = Math.max(0.18, 0.72 - depthLevel() * 0.055);
+      state.spawnTimer = Math.max(0.18, 0.58 - depthLevel() * 0.045);
       spawnPrey(false);
     }
   }
 
   function spawnPrey(initial) {
-    const depth = depthLevel();
-    const candidates = PREY_TYPES.filter((item) => item.minDepth <= depth);
-    const type = state.rng.pickWeighted(candidates);
-    const margin = type.radius + 18;
-    let x = state.rng.range(margin, state.world.w - margin);
-    let y = state.rng.range(margin, state.world.h - margin);
-
-    if (!initial) {
-      const edge = Math.floor(state.rng.next() * 4);
-      if (edge === 0) x = margin;
-      if (edge === 1) x = state.world.w - margin;
-      if (edge === 2) y = margin;
-      if (edge === 3) y = state.world.h - margin;
-    }
-
     const base = homebase();
+    let x = 0;
+    let y = 0;
+    let type = PREY_TYPES[0];
+
     for (let i = 0; i < 10; i += 1) {
+      const position = spawnPosition(initial);
+      x = position.x;
+      y = position.y;
+      const level = territoryLevel(x, y);
+      const candidates = PREY_TYPES.filter((item) => item.minDepth <= level);
+      type = state.rng.pickWeighted(candidates);
+
       const tooCloseToBase = Math.hypot(x - base.x, y - base.y) < base.radius + 88;
       const tooCloseToPlayer = Math.hypot(x - state.player.x, y - state.player.y) < 150;
       if (!tooCloseToBase && !tooCloseToPlayer) break;
-      x = state.rng.range(margin, state.world.w - margin);
-      y = state.rng.range(margin, state.world.h - margin);
     }
+
+    const margin = type.radius + 18;
+    x = clamp(x, margin, state.world.w - margin);
+    y = clamp(y, margin, state.world.h - margin);
 
     state.prey.push({
       ...type,
@@ -625,6 +765,42 @@
       locked: false,
       tooLarge: false,
     });
+  }
+
+  function spawnPosition(initial) {
+    const margin = 42;
+    if (initial || state.rng.next() < 0.34) {
+      return {
+        x: state.rng.range(margin, state.world.w - margin),
+        y: state.rng.range(margin, state.world.h - margin),
+      };
+    }
+
+    const c = state.camera;
+    const pad = 180;
+    const edge = Math.floor(state.rng.next() * 4);
+    if (edge === 0) {
+      return {
+        x: clamp(c.x - pad, margin, state.world.w - margin),
+        y: clamp(state.rng.range(c.y - pad, c.y + c.h + pad), margin, state.world.h - margin),
+      };
+    }
+    if (edge === 1) {
+      return {
+        x: clamp(c.x + c.w + pad, margin, state.world.w - margin),
+        y: clamp(state.rng.range(c.y - pad, c.y + c.h + pad), margin, state.world.h - margin),
+      };
+    }
+    if (edge === 2) {
+      return {
+        x: clamp(state.rng.range(c.x - pad, c.x + c.w + pad), margin, state.world.w - margin),
+        y: clamp(c.y - pad, margin, state.world.h - margin),
+      };
+    }
+    return {
+      x: clamp(state.rng.range(c.x - pad, c.x + c.w + pad), margin, state.world.w - margin),
+      y: clamp(c.y + c.h + pad, margin, state.world.h - margin),
+    };
   }
 
   function updateParticles(dt) {
@@ -676,9 +852,13 @@
   }
 
   function render() {
-    const { w, h } = state.world;
+    const { w, h } = state.viewport;
     ctx.clearRect(0, 0, w, h);
+
+    ctx.save();
+    ctx.translate(-state.camera.x, -state.camera.y);
     drawWater();
+    drawOverworld();
     drawHomebase();
     drawCone();
     drawCaptureTethers();
@@ -687,7 +867,12 @@
     drawPlayer();
     drawParticles();
     drawFloaters();
+    drawWorldFrame();
+    ctx.restore();
+
+    drawVignette();
     drawMessage();
+    drawMinimap();
   }
 
   function drawWater() {
@@ -733,6 +918,118 @@
       ctx.arc(x, y, r, 0, TAU);
       ctx.stroke();
     }
+    ctx.restore();
+  }
+
+  function drawOverworld() {
+    ctx.save();
+
+    for (const biome of BIOMES) {
+      const cx = biome.x + biome.w * 0.5;
+      const cy = biome.y + biome.h * 0.5;
+      const r = Math.max(biome.w, biome.h) * 0.64;
+      const gradient = ctx.createRadialGradient(cx, cy, r * 0.1, cx, cy, r);
+      gradient.addColorStop(0, biome.color);
+      gradient.addColorStop(1, "rgba(255,250,240,0)");
+      ctx.fillStyle = gradient;
+      ctx.fillRect(biome.x, biome.y, biome.w, biome.h);
+
+      ctx.strokeStyle = "rgba(255,250,240,0.08)";
+      ctx.lineWidth = 1;
+      ctx.setLineDash([8, 14]);
+      roundRect(ctx, biome.x + 12, biome.y + 12, biome.w - 24, biome.h - 24, 24);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      ctx.fillStyle = "rgba(255,250,240,0.36)";
+      ctx.font = "800 13px ui-sans-serif, system-ui";
+      ctx.textAlign = "left";
+      ctx.fillText(biome.name.toUpperCase(), biome.x + 28, biome.y + 38);
+    }
+
+    for (const stone of state.overworld.stones) {
+      drawDenRock(stone.x, stone.y, stone.w, stone.h, stone.color);
+    }
+
+    for (const coral of state.overworld.coral) {
+      drawReefBranch(coral.x, coral.y, coral.r, coral.lean, coral.color);
+    }
+
+    for (const kelp of state.overworld.kelp) {
+      drawKelp(kelp);
+    }
+
+    for (const vent of state.overworld.vents) {
+      drawVent(vent);
+    }
+
+    drawCurrentPath();
+    ctx.restore();
+  }
+
+  function drawKelp(kelp) {
+    const sway = Math.sin(state.time * 1.2 + kelp.phase) * 18;
+    ctx.save();
+    ctx.translate(kelp.x, kelp.y);
+    ctx.strokeStyle = "rgba(141,255,183,0.48)";
+    ctx.lineWidth = 4;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.bezierCurveTo(sway * 0.12, -kelp.h * 0.35, sway * 0.45, -kelp.h * 0.68, sway, -kelp.h);
+    ctx.stroke();
+
+    ctx.fillStyle = "rgba(91,231,214,0.18)";
+    for (let i = 0; i < 4; i += 1) {
+      const y = -kelp.h * (0.25 + i * 0.17);
+      const x = sway * (0.1 + i * 0.08);
+      ctx.beginPath();
+      ctx.ellipse(x + (i % 2 ? -10 : 10), y, 15, 4, i % 2 ? -0.5 : 0.5, 0, TAU);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function drawVent(vent) {
+    const pulse = 0.8 + Math.sin(state.time * 2.4 + vent.phase) * 0.2;
+    ctx.save();
+    ctx.translate(vent.x, vent.y);
+    ctx.fillStyle = "rgba(255,179,95,0.16)";
+    ctx.beginPath();
+    ctx.arc(0, -vent.r * 2.1, vent.r * 2.5 * pulse, 0, TAU);
+    ctx.fill();
+    ctx.fillStyle = "#3d4650";
+    ctx.beginPath();
+    ctx.ellipse(0, 0, vent.r * 1.2, vent.r * 0.68, 0, 0, TAU);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(255,208,138,0.4)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(-vent.r * 0.4, -vent.r * 0.4);
+    ctx.quadraticCurveTo(-vent.r * 0.8, -vent.r * 1.6, -vent.r * 0.1, -vent.r * 2.3 - pulse * 8);
+    ctx.moveTo(vent.r * 0.36, -vent.r * 0.34);
+    ctx.quadraticCurveTo(vent.r * 0.92, -vent.r * 1.5, vent.r * 0.08, -vent.r * 2.1 - pulse * 6);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawCurrentPath() {
+    const base = homebase();
+    const p = state.player;
+    const d = Math.hypot(p.x - base.x, p.y - base.y);
+    if (d < 180) return;
+
+    const angle = Math.atan2(base.y - p.y, base.x - p.x);
+    ctx.save();
+    ctx.globalAlpha = clamp((d - 180) / 500, 0, 0.5);
+    ctx.strokeStyle = "rgba(141,255,183,0.38)";
+    ctx.lineWidth = 2;
+    ctx.setLineDash([5, 13]);
+    ctx.beginPath();
+    ctx.moveTo(p.x + Math.cos(angle) * 72, p.y + Math.sin(angle) * 72);
+    ctx.lineTo(base.x, base.y);
+    ctx.stroke();
+    ctx.setLineDash([]);
     ctx.restore();
   }
 
@@ -1009,7 +1306,7 @@
 
   function drawMessage() {
     if (state.messageTimer <= 0) return;
-    const { w } = state.world;
+    const { w } = state.viewport;
     ctx.save();
     ctx.globalAlpha = clamp(state.messageTimer, 0, 1);
     ctx.fillStyle = "rgba(6,16,21,0.76)";
@@ -1022,6 +1319,67 @@
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillText(state.message, w * 0.5, 35);
+    ctx.restore();
+  }
+
+  function drawWorldFrame() {
+    ctx.save();
+    ctx.strokeStyle = "rgba(255,250,240,0.18)";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(1, 1, state.world.w - 2, state.world.h - 2);
+    ctx.restore();
+  }
+
+  function drawVignette() {
+    const { w, h } = state.viewport;
+    const gradient = ctx.createRadialGradient(w * 0.5, h * 0.48, Math.min(w, h) * 0.28, w * 0.5, h * 0.5, Math.max(w, h) * 0.68);
+    gradient.addColorStop(0, "rgba(6,16,21,0)");
+    gradient.addColorStop(1, "rgba(6,16,21,0.34)");
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, w, h);
+  }
+
+  function drawMinimap() {
+    const { w, h } = state.viewport;
+    const mapW = clamp(w * 0.17, 116, 168);
+    const mapH = mapW * (state.world.h / state.world.w);
+    const x = 14;
+    const y = h - mapH - 14;
+    const sx = mapW / state.world.w;
+    const sy = mapH / state.world.h;
+    const base = homebase();
+    const p = state.player;
+
+    ctx.save();
+    ctx.fillStyle = "rgba(6,16,21,0.68)";
+    ctx.strokeStyle = "rgba(255,208,138,0.34)";
+    roundRect(ctx, x, y, mapW, mapH, 8);
+    ctx.fill();
+    ctx.stroke();
+
+    for (const biome of BIOMES) {
+      ctx.fillStyle = biome.color.replace("0.0", "0.2");
+      ctx.fillRect(x + biome.x * sx, y + biome.y * sy, biome.w * sx, biome.h * sy);
+    }
+
+    ctx.strokeStyle = "rgba(255,250,240,0.34)";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x + state.camera.x * sx, y + state.camera.y * sy, state.camera.w * sx, state.camera.h * sy);
+
+    ctx.fillStyle = COLORS.home;
+    ctx.beginPath();
+    ctx.arc(x + base.x * sx, y + base.y * sy, 3.5, 0, TAU);
+    ctx.fill();
+
+    ctx.fillStyle = COLORS.player;
+    ctx.beginPath();
+    ctx.arc(x + p.x * sx, y + p.y * sy, 4.5, 0, TAU);
+    ctx.fill();
+
+    ctx.fillStyle = "rgba(255,250,240,0.72)";
+    ctx.font = "800 9px ui-sans-serif, system-ui";
+    ctx.textAlign = "left";
+    ctx.fillText(biomeAt(p.x, p.y).short.toUpperCase(), x + 8, y + 14);
     ctx.restore();
   }
 
@@ -1040,7 +1398,8 @@
     const s = stats();
     const p = state.player;
     const cargoFull = p.cargo >= s.maxCargo - 0.05;
-    const depth = depthLevel();
+    const zone = territoryLevel(p.x, p.y);
+    const biome = biomeAt(p.x, p.y);
     const octopusSize = Math.round(s.edibleRadius);
 
     hud.innerHTML = `
@@ -1053,8 +1412,8 @@
         <div class="bar"><span style="--value:${pct(p.cargo, s.maxCargo)}; --fill:${cargoFull ? COLORS.danger : COLORS.warm};"></span></div>
       </div>
       <div class="meter">
-        <div class="meter-label"><span>Depth</span><span class="meter-value">${depth}</span></div>
-        <div class="bar"><span style="--value:${Math.min(100, depth * 16.6)}%; --fill:${COLORS.coneLine};"></span></div>
+        <div class="meter-label"><span>Zone</span><span class="meter-value">${biome.short} ${zone}</span></div>
+        <div class="bar"><span style="--value:${Math.min(100, zone * 16.6)}%; --fill:${COLORS.coneLine};"></span></div>
       </div>
       <div class="meter">
         <div class="meter-label"><span>Octopus</span><span class="meter-value">${octopusSize}</span></div>
@@ -1081,6 +1440,7 @@
     state.lastTs = ts;
 
     if (state.running) update(dt);
+    updateCamera(false);
     render();
     updateHud();
     requestAnimationFrame(frame);
@@ -1140,8 +1500,11 @@
   const base = homebase();
   state.player.x = base.x;
   state.player.y = base.y;
-  input.pointer.x = base.x + 120;
-  input.pointer.y = base.y;
-  for (let i = 0; i < 16; i += 1) spawnPrey(true);
+  updateCamera(true);
+  input.pointer.sx = Math.min(state.viewport.w - 24, state.viewport.w * 0.58);
+  input.pointer.sy = state.viewport.h * 0.5;
+  input.pointer.has = true;
+  refreshPointerWorld();
+  for (let i = 0; i < 30; i += 1) spawnPrey(true);
   requestAnimationFrame(frame);
 })();
