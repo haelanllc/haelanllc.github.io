@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" role="img" aria-label="Tide Skimmer thumbnail">
+  <rect width="640" height="360" fill="#f1f0df"/>
+  <rect x="48" y="34" width="544" height="292" rx="10" fill="#133c44"/>
+  <path d="M92 82c86 24 154 24 236 0s146-24 220 0M92 150c86 24 154 24 236 0s146-24 220 0M92 218c86 24 154 24 236 0s146-24 220 0" fill="none" stroke="#8fd3ce" stroke-width="10" stroke-linecap="round" opacity=".42"/>
+  <path d="M322 70c58 55 60 151 0 220-60-69-58-165 0-220Z" fill="#8fd3ce"/>
+  <circle cx="342" cy="134" r="10" fill="#102226"/>
+  <path d="M276 250l-56 34 26-70Z" fill="#f1f0df" opacity=".58"/>
+  <path d="M440 92l20 18-8 26-28 2-17-21 8-27Z" fill="#d46146"/>
+  <path d="M170 178l18 16-8 25-26 2-16-20 7-24Z" fill="#d46146"/>
+  <path d="M480 250c-18-2-30-14-30-29 18-7 39 4 46 22Z" fill="#f4bd55"/>
+  <path d="M126 104c-16-2-27-13-27-26 16-6 35 3 41 20Z" fill="#f4bd55"/>
+  <path d="M78 326h484" stroke="#102226" stroke-width="8" stroke-linecap="round" opacity=".48"/>
+</svg>

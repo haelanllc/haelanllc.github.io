@@ -1,0 +1,565 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+    <meta name="description" content="Tide Skimmer is a mobile one-thumb arcade game with sound effects.">
+    <title>Tide Skimmer</title>
+    <style>
+      :root {
+        --ink: #102226;
+        --deep: #133c44;
+        --water: #2f8791;
+        --foam: #f1f0df;
+        --shell: #f4bd55;
+        --reef: #d46146;
+        --muted: rgba(241, 240, 223, 0.72);
+        --line: rgba(241, 240, 223, 0.2);
+      }
+
+      * {
+        box-sizing: border-box;
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+        background: var(--ink);
+        color: var(--foam);
+        font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        overscroll-behavior: none;
+      }
+
+      body {
+        position: fixed;
+        inset: 0;
+      }
+
+      main {
+        position: relative;
+        width: 100vw;
+        height: 100svh;
+        min-height: 480px;
+        overflow: hidden;
+        background:
+          linear-gradient(180deg, rgba(241, 240, 223, 0.1), transparent 22%),
+          radial-gradient(circle at 50% 110%, rgba(244, 189, 85, 0.2), transparent 34%),
+          var(--deep);
+        touch-action: none;
+      }
+
+      canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+        touch-action: none;
+      }
+
+      .hud {
+        position: absolute;
+        z-index: 2;
+        top: max(12px, env(safe-area-inset-top));
+        left: 12px;
+        right: 12px;
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 10px;
+        pointer-events: none;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: clamp(28px, 9vw, 42px);
+        line-height: 0.92;
+        letter-spacing: 0;
+      }
+
+      .label {
+        margin: 0 0 5px;
+        color: var(--muted);
+        font-size: 10px;
+        font-weight: 850;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .meters {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(62px, auto));
+        gap: 6px;
+      }
+
+      .meter {
+        min-width: 64px;
+        padding: 8px 9px;
+        border: 1px solid var(--line);
+        background: rgba(16, 34, 38, 0.56);
+        text-align: right;
+        backdrop-filter: blur(12px);
+      }
+
+      .meter span {
+        display: block;
+        color: var(--muted);
+        font-size: 9px;
+        font-weight: 850;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+
+      .meter strong {
+        display: block;
+        margin-top: 2px;
+        font-variant-numeric: tabular-nums;
+        font-size: 21px;
+        line-height: 1;
+      }
+
+      .message {
+        position: absolute;
+        z-index: 3;
+        left: 16px;
+        right: 16px;
+        bottom: max(22px, env(safe-area-inset-bottom));
+        display: grid;
+        gap: 12px;
+        padding: 16px;
+        border: 1px solid var(--line);
+        background: rgba(16, 34, 38, 0.76);
+        backdrop-filter: blur(16px);
+      }
+
+      .message[hidden] {
+        display: none;
+      }
+
+      .message p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 14px;
+        line-height: 1.4;
+      }
+
+      .actions {
+        display: flex;
+        gap: 8px;
+      }
+
+      button,
+      a {
+        display: inline-flex;
+        min-height: 42px;
+        align-items: center;
+        justify-content: center;
+        padding: 10px 13px;
+        border: 1px solid rgba(241, 240, 223, 0.32);
+        border-radius: 3px;
+        background: var(--shell);
+        color: var(--ink);
+        font: inherit;
+        font-size: 14px;
+        font-weight: 850;
+        text-decoration: none;
+      }
+
+      a {
+        background: transparent;
+        color: var(--foam);
+      }
+
+      .sound {
+        position: absolute;
+        z-index: 4;
+        right: 12px;
+        bottom: max(12px, env(safe-area-inset-bottom));
+        min-height: 38px;
+        padding: 8px 11px;
+        background: rgba(16, 34, 38, 0.62);
+        color: var(--foam);
+        backdrop-filter: blur(12px);
+      }
+
+      @media (min-width: 760px) {
+        main {
+          width: min(430px, 100vw);
+          margin: 0 auto;
+          border-inline: 1px solid rgba(241, 240, 223, 0.18);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main id="game">
+      <canvas id="canvas" aria-label="Tide Skimmer playfield"></canvas>
+      <section class="hud" aria-label="Game status">
+        <div>
+          <p class="label">Mobile Arcade</p>
+          <h1>Tide<br>Skimmer</h1>
+        </div>
+        <div class="meters">
+          <div class="meter"><span>Shells</span><strong id="score">0</strong></div>
+          <div class="meter"><span>Best</span><strong id="best">0</strong></div>
+        </div>
+      </section>
+      <section class="message" id="message">
+        <p><strong>Drag</strong> to skim between tide lanes. <strong>Tap</strong> for a short boost. Collect shells and avoid reef stones.</p>
+        <div class="actions">
+          <button id="start" type="button">Start</button>
+          <a href="../../">Game Lab</a>
+        </div>
+      </section>
+      <button class="sound" id="sound" type="button" aria-pressed="true">Sound On</button>
+    </main>
+    <script>
+      (() => {
+        const canvas = document.getElementById("canvas");
+        const ctx = canvas.getContext("2d");
+        const scoreEl = document.getElementById("score");
+        const bestEl = document.getElementById("best");
+        const message = document.getElementById("message");
+        const startButton = document.getElementById("start");
+        const soundButton = document.getElementById("sound");
+        const storageKey = "tide-skimmer-best";
+
+        const state = {
+          width: 0,
+          height: 0,
+          dpr: 1,
+          playing: false,
+          score: 0,
+          best: Number(localStorage.getItem(storageKey) || 0),
+          speed: 240,
+          spawn: 0,
+          shellSpawn: 0,
+          time: 0,
+          dragX: 0,
+          boost: 0,
+          muted: false,
+          player: { x: 0, y: 0, r: 18, targetX: 0 },
+          hazards: [],
+          shells: [],
+          ripples: []
+        };
+
+        let audio;
+
+        function setupAudio() {
+          if (state.muted) return;
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          if (!AudioContext) return;
+          audio ||= new AudioContext();
+          if (audio.state === "suspended") audio.resume();
+        }
+
+        function tone(type) {
+          if (state.muted || !audio) return;
+          const now = audio.currentTime;
+          const osc = audio.createOscillator();
+          const gain = audio.createGain();
+          osc.type = type === "hit" ? "sawtooth" : "sine";
+          const start = type === "collect" ? 560 : type === "boost" ? 240 : type === "over" ? 150 : 110;
+          const end = type === "collect" ? 880 : type === "boost" ? 340 : type === "over" ? 70 : 82;
+          const length = type === "over" ? 0.42 : 0.14;
+          osc.frequency.setValueAtTime(start, now);
+          osc.frequency.exponentialRampToValueAtTime(end, now + length);
+          gain.gain.setValueAtTime(0.001, now);
+          gain.gain.exponentialRampToValueAtTime(type === "hit" ? 0.2 : 0.14, now + 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + length);
+          osc.connect(gain);
+          gain.connect(audio.destination);
+          osc.start(now);
+          osc.stop(now + length + 0.02);
+        }
+
+        function resize() {
+          const rect = canvas.parentElement.getBoundingClientRect();
+          state.dpr = Math.min(window.devicePixelRatio || 1, 2);
+          state.width = Math.floor(rect.width);
+          state.height = Math.floor(rect.height);
+          canvas.width = Math.floor(state.width * state.dpr);
+          canvas.height = Math.floor(state.height * state.dpr);
+          canvas.style.width = `${state.width}px`;
+          canvas.style.height = `${state.height}px`;
+          ctx.setTransform(state.dpr, 0, 0, state.dpr, 0, 0);
+          state.player.y = state.height * 0.75;
+          if (!state.playing) {
+            state.player.x = state.width * 0.5;
+            state.player.targetX = state.player.x;
+          }
+        }
+
+        function reset() {
+          setupAudio();
+          state.playing = true;
+          state.score = 0;
+          state.speed = 240;
+          state.spawn = 0;
+          state.shellSpawn = 0;
+          state.time = 0;
+          state.boost = 0;
+          state.hazards = [];
+          state.shells = [];
+          state.ripples = [];
+          state.player.x = state.width * 0.5;
+          state.player.targetX = state.player.x;
+          message.hidden = true;
+          scoreEl.textContent = "0";
+          bestEl.textContent = String(state.best);
+          tone("boost");
+        }
+
+        function endGame() {
+          state.playing = false;
+          state.best = Math.max(state.best, state.score);
+          localStorage.setItem(storageKey, String(state.best));
+          bestEl.textContent = String(state.best);
+          message.hidden = false;
+          startButton.textContent = "Play Again";
+          tone("over");
+        }
+
+        function addRipple(x, y, color) {
+          state.ripples.push({ x, y, color, age: 0, max: 0.45 });
+        }
+
+        function rand(min, max) {
+          return min + Math.random() * (max - min);
+        }
+
+        function spawnHazard() {
+          const size = rand(18, 34);
+          state.hazards.push({
+            x: rand(size + 8, state.width - size - 8),
+            y: -size - 20,
+            r: size,
+            spin: rand(-2, 2)
+          });
+        }
+
+        function spawnShell() {
+          state.shells.push({
+            x: rand(28, state.width - 28),
+            y: -34,
+            r: 13,
+            drift: rand(-24, 24)
+          });
+        }
+
+        function movePlayer(dt) {
+          const ease = Math.min(1, dt * 10);
+          state.player.x += (state.player.targetX - state.player.x) * ease;
+          state.player.x = Math.max(state.player.r + 8, Math.min(state.width - state.player.r - 8, state.player.x));
+          state.boost = Math.max(0, state.boost - dt);
+        }
+
+        function update(dt) {
+          if (!state.playing) return;
+          state.time += dt;
+          state.speed += dt * 8;
+          state.spawn -= dt;
+          state.shellSpawn -= dt;
+          if (state.spawn <= 0) {
+            spawnHazard();
+            state.spawn = Math.max(0.36, 0.9 - state.time * 0.012);
+          }
+          if (state.shellSpawn <= 0) {
+            spawnShell();
+            state.shellSpawn = rand(0.55, 0.9);
+          }
+
+          movePlayer(dt);
+          const fall = state.speed * (state.boost > 0 ? 1.28 : 1);
+          state.hazards.forEach((hazard) => {
+            hazard.y += fall * dt;
+            hazard.spin += dt;
+          });
+          state.shells.forEach((shell) => {
+            shell.y += fall * dt * 0.94;
+            shell.x += shell.drift * dt;
+          });
+          state.ripples.forEach((ripple) => ripple.age += dt);
+
+          state.hazards = state.hazards.filter((hazard) => hazard.y < state.height + hazard.r + 40);
+          state.shells = state.shells.filter((shell) => shell.y < state.height + 40 && !shell.got);
+          state.ripples = state.ripples.filter((ripple) => ripple.age < ripple.max);
+
+          for (const shell of state.shells) {
+            const dx = shell.x - state.player.x;
+            const dy = shell.y - state.player.y;
+            if (Math.hypot(dx, dy) < shell.r + state.player.r) {
+              shell.got = true;
+              state.score += 1;
+              scoreEl.textContent = String(state.score);
+              addRipple(shell.x, shell.y, "#f4bd55");
+              tone("collect");
+            }
+          }
+
+          for (const hazard of state.hazards) {
+            const dx = hazard.x - state.player.x;
+            const dy = hazard.y - state.player.y;
+            if (Math.hypot(dx, dy) < hazard.r + state.player.r * 0.74) {
+              addRipple(state.player.x, state.player.y, "#d46146");
+              tone("hit");
+              endGame();
+              break;
+            }
+          }
+        }
+
+        function drawWater() {
+          const lane = state.width / 4;
+          ctx.fillStyle = "#133c44";
+          ctx.fillRect(0, 0, state.width, state.height);
+          for (let i = 0; i < 5; i += 1) {
+            const x = i * lane - lane * 0.18;
+            ctx.fillStyle = i % 2 ? "rgba(47, 135, 145, 0.22)" : "rgba(241, 240, 223, 0.055)";
+            ctx.fillRect(x, 0, lane * 0.7, state.height);
+          }
+          ctx.strokeStyle = "rgba(241, 240, 223, 0.16)";
+          ctx.lineWidth = 2;
+          for (let y = (state.time * state.speed * 0.25) % 70 - 70; y < state.height + 80; y += 70) {
+            ctx.beginPath();
+            ctx.moveTo(16, y);
+            ctx.quadraticCurveTo(state.width * 0.5, y + 18, state.width - 16, y);
+            ctx.stroke();
+          }
+        }
+
+        function drawHazard(hazard) {
+          ctx.save();
+          ctx.translate(hazard.x, hazard.y);
+          ctx.rotate(hazard.spin);
+          ctx.fillStyle = "#d46146";
+          ctx.beginPath();
+          for (let i = 0; i < 7; i += 1) {
+            const a = (Math.PI * 2 * i) / 7;
+            const radius = hazard.r * (i % 2 ? 0.75 : 1);
+            ctx.lineTo(Math.cos(a) * radius, Math.sin(a) * radius);
+          }
+          ctx.closePath();
+          ctx.fill();
+          ctx.strokeStyle = "rgba(16, 34, 38, 0.5)";
+          ctx.lineWidth = 3;
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        function drawShell(shell) {
+          ctx.save();
+          ctx.translate(shell.x, shell.y);
+          ctx.fillStyle = "#f4bd55";
+          ctx.beginPath();
+          ctx.arc(0, 0, shell.r, 0.15 * Math.PI, 0.85 * Math.PI, true);
+          ctx.lineTo(shell.r * 0.9, shell.r * 0.5);
+          ctx.closePath();
+          ctx.fill();
+          ctx.strokeStyle = "rgba(16, 34, 38, 0.48)";
+          ctx.lineWidth = 2;
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        function drawPlayer() {
+          const p = state.player;
+          ctx.save();
+          ctx.translate(p.x, p.y);
+          ctx.fillStyle = state.boost > 0 ? "#f1f0df" : "#8fd3ce";
+          ctx.beginPath();
+          ctx.moveTo(0, -24);
+          ctx.quadraticCurveTo(22, 2, 0, 26);
+          ctx.quadraticCurveTo(-22, 2, 0, -24);
+          ctx.fill();
+          ctx.fillStyle = "#102226";
+          ctx.beginPath();
+          ctx.arc(6, -8, 3, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = "rgba(241, 240, 223, 0.4)";
+          ctx.beginPath();
+          ctx.moveTo(-10, 14);
+          ctx.lineTo(-26, 24);
+          ctx.lineTo(-12, 2);
+          ctx.fill();
+          ctx.restore();
+        }
+
+        function drawRipples() {
+          for (const ripple of state.ripples) {
+            const t = ripple.age / ripple.max;
+            ctx.strokeStyle = ripple.color.replace(")", `, ${1 - t})`).replace("rgb", "rgba");
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(ripple.x, ripple.y, 12 + t * 42, 0, Math.PI * 2);
+            ctx.stroke();
+          }
+        }
+
+        function draw() {
+          drawWater();
+          state.shells.forEach(drawShell);
+          state.hazards.forEach(drawHazard);
+          drawRipples();
+          drawPlayer();
+          if (!state.playing) {
+            ctx.fillStyle = "rgba(16, 34, 38, 0.22)";
+            ctx.fillRect(0, 0, state.width, state.height);
+          }
+        }
+
+        let last = performance.now();
+        function frame(now) {
+          const dt = Math.min(0.033, (now - last) / 1000);
+          last = now;
+          update(dt);
+          draw();
+          requestAnimationFrame(frame);
+        }
+
+        function setTarget(clientX) {
+          const rect = canvas.getBoundingClientRect();
+          state.player.targetX = clientX - rect.left;
+        }
+
+        function boost() {
+          if (!state.playing) return;
+          state.boost = 0.34;
+          addRipple(state.player.x, state.player.y + 18, "#f1f0df");
+          tone("boost");
+        }
+
+        canvas.addEventListener("pointerdown", (event) => {
+          event.preventDefault();
+          setupAudio();
+          if (!state.playing) {
+            reset();
+            return;
+          }
+          setTarget(event.clientX);
+          boost();
+        });
+
+        canvas.addEventListener("pointermove", (event) => {
+          if (!state.playing) return;
+          setTarget(event.clientX);
+        });
+
+        startButton.addEventListener("click", reset);
+        soundButton.addEventListener("click", () => {
+          state.muted = !state.muted;
+          soundButton.textContent = state.muted ? "Sound Off" : "Sound On";
+          soundButton.setAttribute("aria-pressed", String(!state.muted));
+          if (!state.muted) setupAudio();
+        });
+
+        window.addEventListener("resize", resize);
+        bestEl.textContent = String(state.best);
+        resize();
+        requestAnimationFrame(frame);
+      })();
+    </script>
+  </body>
+</html>

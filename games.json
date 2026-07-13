@@ -32,6 +32,22 @@
     "accent": "gold"
   },
   {
+    "id": "tide-skimmer",
+    "title": "Tide Skimmer",
+    "description": "A one-thumb mobile ocean game with sound effects. Drag between tide lanes, tap to boost, collect shells, and dodge reef stones.",
+    "status": "Ready",
+    "playUrl": "/games/tide-skimmer/",
+    "codeUrl": "",
+    "image": "/assets/thumbnails/tide-skimmer.svg",
+    "tags": [
+      "Canvas",
+      "Mobile",
+      "Sound"
+    ],
+    "learned": "Mobile games feel better when movement, scoring, and sound feedback all happen from the first tap.",
+    "accent": "sky"
+  },
+  {
     "id": "spine-laser-dino-duel",
     "title": "Spine Laser Dino Duel",
     "description": "Explore a massive Zelda-style dinosaur overworld with generated trees, rocks, climbable mountains, back lasers, and roaming NPC theropods.",

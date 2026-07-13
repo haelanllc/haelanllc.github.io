@@ -1,0 +1,9 @@
+{
+  "scripts": {
+    "serve": "python3 -m http.server 4173",
+    "test:tide-skimmer": "node scripts/smoke-tide-skimmer.js"
+  },
+  "devDependencies": {
+    "playwright": "^1.61.1"
+  }
+}
