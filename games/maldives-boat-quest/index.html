@@ -333,6 +333,7 @@
           { x: 330, y: 2440, vx: 24, vy: -12, species: maldivesFish[6], size: 1.75, active: true, respawn: 0 },
           { x: 1290, y: 3040, vx: -20, vy: -10, species: maldivesFish[11], size: 1.9, active: true, respawn: 0 }
         ];
+        const deepCreatureTemplate = { x: 1260, y: 2460, vx: -34, vy: 18, hp: 5, maxHp: 5, active: true, respawn: 0, flash: 0 };
 
         const state = {
           w: 0, h: 0, dpr: 1, playing: false, muted: false, time: 0,
@@ -346,6 +347,8 @@
           arrows: [],
           treasures,
           deepFish,
+          creature: { ...deepCreatureTemplate },
+          streak: 0,
           ripples: [],
           pings: [],
           lastSave: 0,
@@ -414,6 +417,8 @@
           state.arrows = [];
           state.treasures.forEach((treasure) => { treasure.active = true; treasure.respawn = 0; });
           state.deepFish.forEach((fish) => { fish.active = true; fish.respawn = 0; });
+          state.creature = { ...deepCreatureTemplate };
+          state.streak = 0;
           state.ripples = [];
           state.pings = [];
           setNetArmed(false);
@@ -487,6 +492,8 @@
             state.arrows = [];
             state.treasures.forEach((treasure) => { treasure.active = true; treasure.respawn = 0; });
             state.deepFish.forEach((fish) => { fish.active = true; fish.respawn = 0; });
+            state.creature = { ...deepCreatureTemplate };
+            state.streak = 0;
             state.ripples = [];
             state.pings = [];
             setNetArmed(false);
@@ -645,12 +652,38 @@
         function resolveArrow(arrow) {
           const boat = state.boat;
           if (capacity() - boat.catch <= 0) { setToast("Hold is full. Return to a harbor to sell."); return; }
+          const creature = state.creature;
+          if (creature.active && Math.hypot(creature.x - arrow.x2, creature.y - arrow.y2) < 82) {
+            creature.hp -= 1;
+            creature.flash = 0.35;
+            creature.vx *= -1.04;
+            creature.vy += (Math.random() - 0.5) * 26;
+            state.streak += 1;
+            state.pings.push({ x: creature.x, y: creature.y, life: 0.9, color: "#d45f49" });
+            if (creature.hp <= 0) {
+              const reward = 180 + state.streak * 20;
+              boat.money += reward;
+              creature.active = false;
+              creature.respawn = 28;
+              state.streak = 0;
+              setToast(`Deep creature defeated: +${reward} rufiyaa. It will return deeper out.`);
+              tone("upgrade");
+              updateHud();
+              saveGame();
+              return;
+            }
+            setToast(`Deep creature hit! HP ${creature.hp}/${creature.maxHp}. Streak ${state.streak}.`);
+            tone("fish");
+            saveGame();
+            return;
+          }
           const target = state.deepFish
             .filter((fish) => fish.active)
             .map((fish) => ({ fish, d: Math.hypot(fish.x - arrow.x2, fish.y - arrow.y2) }))
             .filter((item) => item.d < 58)
             .sort((a, b) => a.d - b.d)[0]?.fish;
           if (!target) {
+            state.streak = 0;
             setToast("Bow shot missed. Aim ahead of the bigger deep-water fish.");
             tone("bump");
             return;
@@ -661,8 +694,9 @@
           boat.hold[species.common] = (boat.hold[species.common] || 0) + haul;
           target.active = false;
           target.respawn = 16 + Math.random() * 14;
+          state.streak += 1;
           state.pings.push({ x: target.x, y: target.y, life: 0.9, color: "#f5f1df" });
-          setToast(`Bowfished a big ${species.common}: ${haul} fish in the hold.`);
+          setToast(`Bowfished a big ${species.common}: ${haul} fish. Deep streak ${state.streak}.`);
           tone("sell");
           updateHud();
           saveGame();
@@ -900,6 +934,35 @@
         }
 
         function updateDeepFish(dt) {
+          const creature = state.creature;
+          if (creature.active) {
+            creature.flash = Math.max(0, creature.flash - dt);
+            const awayX = creature.x - state.boat.x;
+            const awayY = creature.y - state.boat.y;
+            const awayDistance = Math.hypot(awayX, awayY) || 1;
+            const flee = awayDistance < 260 ? 52 : 0;
+            creature.x += (creature.vx + awayX / awayDistance * flee) * dt + Math.sin(state.time * 0.55) * 18 * dt;
+            creature.y += (creature.vy + awayY / awayDistance * flee) * dt + Math.cos(state.time * 0.48) * 16 * dt;
+            if (creature.x < 220 || creature.x > world.w - 220) creature.vx *= -1;
+            if (creature.y < 340 || creature.y > world.h - 340) creature.vy *= -1;
+            creature.x = clamp(creature.x, 220, world.w - 220);
+            creature.y = clamp(creature.y, 340, world.h - 340);
+            if (!isDeepWater(creature.x, creature.y)) {
+              creature.x += creature.x < world.w * 0.5 ? -160 * dt : 160 * dt;
+              creature.y += creature.y < world.h * 0.5 ? -80 * dt : 80 * dt;
+            }
+          } else {
+            creature.respawn -= dt;
+            if (creature.respawn <= 0) {
+              state.creature = {
+                ...deepCreatureTemplate,
+                x: Math.random() < 0.5 ? 260 : world.w - 260,
+                y: 700 + Math.random() * (world.h - 1400),
+                vx: Math.random() < 0.5 ? 36 : -36,
+                vy: (Math.random() - 0.5) * 36
+              };
+            }
+          }
           for (const fish of state.deepFish) {
             if (!fish.active) {
               fish.respawn -= dt;
@@ -1195,6 +1258,7 @@
         }
 
         function drawDeepFish() {
+          drawDeepCreature();
           for (const fish of state.deepFish) {
             if (!fish.active) continue;
             const x = screenX(fish.x), y = screenY(fish.y);
@@ -1209,6 +1273,59 @@
             drawFishIcon(x, y, fish.vx < 0 ? Math.PI : 0, { ...fish.species, size: fish.species.size * fish.size });
             ctx.restore();
           }
+        }
+
+        function drawDeepCreature() {
+          const creature = state.creature;
+          if (!creature.active) return;
+          const x = screenX(creature.x), y = screenY(creature.y);
+          if (x < -150 || x > state.w + 150 || y < -150 || y > state.h + 150) return;
+          const angle = Math.atan2(creature.vy, creature.vx);
+          const pulse = Math.sin(state.time * 5) * 4;
+          ctx.save();
+          ctx.translate(x, y);
+          ctx.rotate(angle);
+          ctx.globalAlpha = 0.38;
+          ctx.fillStyle = "#03141b";
+          ctx.beginPath();
+          ctx.ellipse(18, 34, 78, 22, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.globalAlpha = 1;
+          ctx.fillStyle = creature.flash > 0 ? "#d45f49" : "#1a4450";
+          ctx.strokeStyle = "#8eddd1";
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.ellipse(0, 0, 58 + pulse, 28, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+          ctx.fillStyle = "#0b2a34";
+          for (let i = -2; i <= 2; i += 1) {
+            ctx.beginPath();
+            ctx.ellipse(-38, i * 10, 34, 5, i * 0.18, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          ctx.fillStyle = "#f5f1df";
+          ctx.beginPath();
+          ctx.arc(30, -7, 6, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = "#d45f49";
+          ctx.beginPath();
+          ctx.arc(32, -7, 3, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+
+          const barW = 86;
+          const hp = Math.max(0, creature.hp / creature.maxHp);
+          ctx.fillStyle = "rgba(3,20,27,.72)";
+          ctx.fillRect(x - barW / 2, y - 58, barW, 9);
+          ctx.fillStyle = "#d45f49";
+          ctx.fillRect(x - barW / 2, y - 58, barW * hp, 9);
+          ctx.strokeStyle = "rgba(245,241,223,.72)";
+          ctx.strokeRect(x - barW / 2, y - 58, barW, 9);
+          ctx.fillStyle = "rgba(245,241,223,.9)";
+          ctx.font = "800 10px system-ui";
+          ctx.textAlign = "center";
+          ctx.fillText("DEEP CREATURE", x, y - 66);
         }
 
         function drawFishIcon(x, y, angle, species) {
@@ -1688,7 +1805,7 @@
           }
           setNetArmed(false);
           setBowArmed(!state.bow.armed);
-          setToast(state.bow.armed ? "Bow ready. Sail into deep blue water, pull back, and release at a big fish." : "Bow canceled. Drag to sail.");
+          setToast(state.bow.armed ? "Bow ready. Deep water has big fish and the creature. Pull back, release, chase hits." : "Bow canceled. Drag to sail.");
         });
         dockButton.addEventListener("click", toggleDock);
         upgradeButton.addEventListener("click", openUpgradePanel);
