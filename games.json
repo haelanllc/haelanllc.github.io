@@ -18,7 +18,7 @@
   {
     "id": "maldives-boat-quest",
     "title": "Maldives Boat Quest",
-    "description": "Adventure by boat across a Maldives-shaped atoll overworld, place nets over moving fish shoals, sell at harbor islands, upgrade nets and sonar, and keep saved progress.",
+    "description": "Adventure by boat across a Maldives-shaped atoll overworld, pull back to cast nets over moving fish shoals, sell at harbor islands, upgrade nets and sonar, and keep saved progress.",
     "status": "Ready",
     "playUrl": "/games/maldives-boat-quest/",
     "codeUrl": "",
@@ -28,7 +28,7 @@
       "Maldives",
       "Upgrades"
     ],
-    "learned": "A real-place overworld feels stronger when geography becomes the game loop: long island chain, moving shoals, manual net placement, harbor upgrades, sonar, and saved progress.",
+    "learned": "A real-place overworld feels stronger when geography becomes the game loop: long island chain, moving shoals, pull-back net casting, harbor upgrades, sonar, respawning fish, and saved progress.",
     "accent": "sky"
   },
   {
