@@ -211,19 +211,19 @@
           { name: "Addu", x: 910, y: 3950, rx: 170, ry: 120, harbor: true }
         ];
         const maldivesFish = [
-          { common: "skipjack tuna", local: "kandumas", value: 26, color: "#d9e7e5" },
-          { common: "yellowfin tuna", local: "kanneli", value: 34, color: "#e9b85d" },
-          { common: "little tunny", local: "latti", value: 22, color: "#c7d9d5" },
-          { common: "frigate tuna", local: "raagondi", value: 24, color: "#d6dee0" },
-          { common: "bigeye scad", local: "mushimas", value: 18, color: "#f5f1df" },
-          { common: "wahoo", local: "kurumas", value: 38, color: "#b9e4e5" },
-          { common: "mahi-mahi", local: "fiyala", value: 36, color: "#e9d56a" },
-          { common: "bluefin jack", local: "handi", value: 28, color: "#8eddd1" },
-          { common: "mackerel scad", local: "rimmas", value: 17, color: "#d7e8e7" },
-          { common: "reef grouper", local: "faana", value: 32, color: "#d45f49" },
-          { common: "red snapper", local: "raiymas", value: 30, color: "#e87c61" },
-          { common: "barracuda", local: "farumas", value: 31, color: "#cfe7e1" },
-          { common: "rainbow runner", local: "magoodhoo mas", value: 27, color: "#8eddd1" }
+          { common: "skipjack tuna", local: "kandumas", value: 26, color: "#d9e7e5", accent: "#273f48", shape: "tuna", size: 1.05 },
+          { common: "yellowfin tuna", local: "kanneli", value: 34, color: "#d7dfe2", accent: "#e9b85d", shape: "tuna", size: 1.15 },
+          { common: "little tunny", local: "latti", value: 22, color: "#aebfc2", accent: "#283d43", shape: "tuna", size: 0.92 },
+          { common: "frigate tuna", local: "raagondi", value: 24, color: "#c9d7d8", accent: "#31454d", shape: "tuna", size: 0.88 },
+          { common: "bigeye scad", local: "mushimas", value: 18, color: "#f5f1df", accent: "#d8c36f", shape: "scad", size: 0.75 },
+          { common: "wahoo", local: "kurumas", value: 38, color: "#b9e4e5", accent: "#2a6c78", shape: "needle", size: 1.28 },
+          { common: "mahi-mahi", local: "fiyala", value: 36, color: "#e9d56a", accent: "#31a7aa", shape: "mahi", size: 1.2 },
+          { common: "bluefin jack", local: "handi", value: 28, color: "#8eddd1", accent: "#245d75", shape: "jack", size: 0.95 },
+          { common: "mackerel scad", local: "rimmas", value: 17, color: "#d7e8e7", accent: "#7a8c8c", shape: "scad", size: 0.72 },
+          { common: "reef grouper", local: "faana", value: 32, color: "#d45f49", accent: "#f1d89b", shape: "grouper", size: 1.05 },
+          { common: "red snapper", local: "raiymas", value: 30, color: "#e87c61", accent: "#f5f1df", shape: "snapper", size: 0.98 },
+          { common: "barracuda", local: "farumas", value: 31, color: "#cfe7e1", accent: "#5d7d7f", shape: "needle", size: 1.35 },
+          { common: "rainbow runner", local: "magoodhoo mas", value: 27, color: "#8eddd1", accent: "#e9b85d", shape: "runner", size: 0.98 }
         ];
         const fishSpots = atolls.map((a, index) => ({
           x: a.x + Math.sin(index * 2.1) * a.rx * 0.45,
@@ -527,13 +527,105 @@
             ctx.beginPath();
             ctx.ellipse(x, y, 34 + Math.sin(state.time * 4) * 4, 22, Math.sin(state.time + spot.x) * 0.35, 0, Math.PI * 2);
             ctx.stroke();
-            ctx.fillStyle = spot.species.color;
             for (let i = 0; i < spot.stock; i += 1) {
+              const fishX = x + Math.cos(i * 1.4 + state.time) * 16;
+              const fishY = y + Math.sin(i * 1.7 + state.time) * 9;
+              drawFishIcon(fishX, fishY, Math.sin(i + state.time) * 0.25, spot.species);
+            }
+          }
+        }
+
+        function drawFishIcon(x, y, angle, species) {
+          const s = species.size;
+          ctx.save();
+          ctx.translate(x, y);
+          ctx.rotate(angle);
+          ctx.fillStyle = species.color;
+          ctx.strokeStyle = "rgba(6,32,38,.45)";
+          ctx.lineWidth = 1;
+
+          if (species.shape === "needle") {
+            ctx.beginPath();
+            ctx.ellipse(0, 0, 13 * s, 2.8 * s, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            ctx.fillStyle = species.accent;
+            ctx.fillRect(-9 * s, -1 * s, 14 * s, 1.8 * s);
+            ctx.fillStyle = species.color;
+            ctx.beginPath();
+            ctx.moveTo(13 * s, 0);
+            ctx.lineTo(21 * s, -1.4 * s);
+            ctx.lineTo(21 * s, 1.4 * s);
+            ctx.closePath();
+            ctx.fill();
+          } else if (species.shape === "mahi") {
+            ctx.beginPath();
+            ctx.ellipse(0, 0, 11 * s, 5 * s, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            ctx.fillStyle = species.accent;
+            ctx.beginPath();
+            ctx.moveTo(-7 * s, -5 * s);
+            ctx.lineTo(8 * s, -9 * s);
+            ctx.lineTo(4 * s, -3 * s);
+            ctx.closePath();
+            ctx.fill();
+            ctx.fillStyle = "#f5f1df";
+            ctx.beginPath();
+            ctx.arc(6 * s, -1 * s, 1.3 * s, 0, Math.PI * 2);
+            ctx.fill();
+          } else if (species.shape === "grouper") {
+            ctx.beginPath();
+            ctx.ellipse(0, 0, 9 * s, 6.8 * s, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            ctx.fillStyle = species.accent;
+            for (let dot = 0; dot < 3; dot += 1) {
               ctx.beginPath();
-              ctx.ellipse(x + Math.cos(i * 1.4 + state.time) * 16, y + Math.sin(i * 1.7 + state.time) * 9, 7, 3, Math.sin(i), 0, Math.PI * 2);
+              ctx.arc((-3 + dot * 3) * s, (-1 + dot % 2 * 3) * s, 1.1 * s, 0, Math.PI * 2);
+              ctx.fill();
+            }
+          } else if (species.shape === "snapper") {
+            ctx.beginPath();
+            ctx.ellipse(0, 0, 10 * s, 5.4 * s, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            ctx.fillStyle = species.accent;
+            ctx.beginPath();
+            ctx.moveTo(-1 * s, -5 * s);
+            ctx.lineTo(5 * s, -10 * s);
+            ctx.lineTo(6 * s, -3 * s);
+            ctx.fill();
+          } else {
+            ctx.beginPath();
+            ctx.ellipse(0, 0, 10 * s, 4.2 * s, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            ctx.fillStyle = species.accent;
+            if (species.shape === "tuna") {
+              ctx.beginPath();
+              ctx.moveTo(-4 * s, -4 * s);
+              ctx.lineTo(4 * s, -8 * s);
+              ctx.lineTo(2 * s, -3 * s);
+              ctx.fill();
+            } else if (species.shape === "runner") {
+              ctx.fillRect(-8 * s, -1 * s, 16 * s, 2 * s);
+            } else {
+              ctx.beginPath();
+              ctx.arc(5 * s, 0, 2 * s, 0, Math.PI * 2);
               ctx.fill();
             }
           }
+
+          ctx.fillStyle = species.color;
+          ctx.beginPath();
+          ctx.moveTo(-9 * s, 0);
+          ctx.lineTo(-15 * s, -4 * s);
+          ctx.lineTo(-13 * s, 0);
+          ctx.lineTo(-15 * s, 4 * s);
+          ctx.closePath();
+          ctx.fill();
+          ctx.restore();
         }
 
         function drawNets() {
