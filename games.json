@@ -16,6 +16,22 @@
     "accent": "sky"
   },
   {
+    "id": "maldives-boat-quest",
+    "title": "Maldives Boat Quest",
+    "description": "Adventure by boat across a Maldives-shaped atoll overworld, fish reef rings, sell at harbor islands, and upgrade your fishing nets, boat speed, and capacity.",
+    "status": "Ready",
+    "playUrl": "/games/maldives-boat-quest/",
+    "codeUrl": "",
+    "image": "/assets/thumbnails/maldives-boat-quest.svg",
+    "tags": [
+      "Canvas",
+      "Maldives",
+      "Upgrades"
+    ],
+    "learned": "A real-place overworld feels stronger when the geography becomes the game loop: long island chain, reef stops, harbor returns, and route planning.",
+    "accent": "sky"
+  },
+  {
     "id": "abyssal-relic-quest",
     "title": "Trade Wind Run",
     "description": "A super adventurous wind-surfing game: carve across open water, catch shifting trade winds, collect seven flags, dodge reefs and storm buoys, and cross the finish gate.",

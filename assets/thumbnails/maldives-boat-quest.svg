@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" role="img" aria-label="Maldives Boat Quest thumbnail">
+  <rect width="640" height="360" fill="#f5f1df"/>
+  <rect x="44" y="30" width="552" height="300" rx="10" fill="#126a78"/>
+  <path d="M82 82c92 34 164 20 244-4s154-20 230 10M82 164c92 34 164 20 244-4s154-20 230 10M82 246c92 34 164 20 244-4s154-20 230 10" fill="none" stroke="#f5f1df" stroke-width="9" stroke-linecap="round" opacity=".32"/>
+  <g fill="none" stroke="#8eddd1" stroke-width="8">
+    <ellipse cx="288" cy="78" rx="52" ry="34"/>
+    <ellipse cx="358" cy="126" rx="58" ry="38"/>
+    <ellipse cx="284" cy="180" rx="62" ry="42"/>
+    <ellipse cx="376" cy="236" rx="70" ry="46"/>
+    <ellipse cx="324" cy="292" rx="54" ry="34"/>
+  </g>
+  <g fill="#f1d89b">
+    <circle cx="316" cy="70" r="7"/>
+    <circle cx="334" cy="140" r="6"/>
+    <circle cx="250" cy="186" r="7"/>
+    <circle cx="420" cy="224" r="8"/>
+    <circle cx="344" cy="300" r="6"/>
+  </g>
+  <path d="M154 206c38-22 76-22 116 0-22 32-90 32-116 0Z" fill="#f5f1df"/>
+  <rect x="206" y="194" width="28" height="22" rx="4" fill="#d45f49"/>
+  <path d="M176 226c-24 18-42 22-62 10" fill="none" stroke="#e9b85d" stroke-width="5" stroke-linecap="round"/>
+  <circle cx="454" cy="118" r="22" fill="#e9b85d"/>
+  <path d="M86 326h468" stroke="#062026" stroke-width="8" stroke-linecap="round" opacity=".55"/>
+</svg>

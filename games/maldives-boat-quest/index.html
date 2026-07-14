@@ -1,0 +1,575 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+    <meta name="description" content="Maldives Boat Quest is a mobile-friendly fishing and boat upgrade adventure across a Maldives-inspired atoll map.">
+    <title>Maldives Boat Quest</title>
+    <style>
+      :root {
+        --ink: #062026;
+        --deep: #083944;
+        --lagoon: #31a7aa;
+        --reef: #8eddd1;
+        --sand: #f1d89b;
+        --gold: #e9b85d;
+        --coral: #d45f49;
+        --paper: #f5f1df;
+        --line: rgba(245, 241, 223, 0.22);
+      }
+      * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+      html, body {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+        background: var(--ink);
+        color: var(--paper);
+        font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        overscroll-behavior: none;
+      }
+      body { position: fixed; inset: 0; }
+      main {
+        position: relative;
+        width: 100vw;
+        height: 100svh;
+        min-height: 500px;
+        overflow: hidden;
+        background:
+          linear-gradient(180deg, rgba(49, 167, 170, 0.28), transparent 36%),
+          radial-gradient(circle at 50% 112%, rgba(233, 184, 93, 0.2), transparent 36%),
+          var(--deep);
+        touch-action: none;
+      }
+      canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+      .hud {
+        position: absolute;
+        z-index: 2;
+        top: max(12px, env(safe-area-inset-top));
+        left: 12px;
+        right: 12px;
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 10px;
+        pointer-events: none;
+      }
+      .eyebrow {
+        margin: 0 0 5px;
+        color: rgba(245, 241, 223, 0.72);
+        font-size: 10px;
+        font-weight: 850;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      h1 {
+        margin: 0;
+        max-width: 260px;
+        font-size: clamp(30px, 9vw, 48px);
+        line-height: 0.9;
+        letter-spacing: 0;
+      }
+      .meters {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(70px, auto));
+        gap: 6px;
+      }
+      .meter {
+        min-width: 70px;
+        padding: 8px 9px;
+        border: 1px solid var(--line);
+        background: rgba(6, 32, 38, 0.66);
+        text-align: right;
+        backdrop-filter: blur(12px);
+      }
+      .meter span {
+        display: block;
+        color: rgba(245, 241, 223, 0.66);
+        font-size: 9px;
+        font-weight: 850;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+      .meter strong {
+        display: block;
+        margin-top: 2px;
+        font-variant-numeric: tabular-nums;
+        font-size: 20px;
+        line-height: 1;
+      }
+      .message {
+        position: absolute;
+        z-index: 3;
+        left: 16px;
+        right: 16px;
+        bottom: max(18px, env(safe-area-inset-bottom));
+        display: grid;
+        gap: 12px;
+        padding: 16px;
+        border: 1px solid var(--line);
+        background: rgba(6, 32, 38, 0.84);
+        backdrop-filter: blur(16px);
+      }
+      .message[hidden] { display: none; }
+      .message p { margin: 0; color: rgba(245, 241, 223, 0.8); font-size: 14px; line-height: 1.42; }
+      .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+      button, a {
+        display: inline-flex;
+        min-height: 42px;
+        align-items: center;
+        justify-content: center;
+        padding: 10px 13px;
+        border: 1px solid rgba(245, 241, 223, 0.34);
+        border-radius: 3px;
+        background: var(--gold);
+        color: var(--ink);
+        font: inherit;
+        font-size: 14px;
+        font-weight: 850;
+        text-decoration: none;
+      }
+      a { background: transparent; color: var(--paper); }
+      .toast {
+        position: absolute;
+        z-index: 4;
+        left: 14px;
+        bottom: max(12px, env(safe-area-inset-bottom));
+        max-width: min(390px, calc(100vw - 28px));
+        padding: 9px 11px;
+        border: 1px solid var(--line);
+        background: rgba(6, 32, 38, 0.68);
+        color: var(--paper);
+        font-size: 13px;
+        backdrop-filter: blur(12px);
+        pointer-events: none;
+      }
+      .sound {
+        position: absolute;
+        z-index: 4;
+        right: 12px;
+        bottom: max(12px, env(safe-area-inset-bottom));
+        min-height: 38px;
+        padding: 8px 11px;
+        background: rgba(6, 32, 38, 0.62);
+        color: var(--paper);
+        backdrop-filter: blur(12px);
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <canvas id="game" aria-label="Maldives Boat Quest playfield"></canvas>
+      <section class="hud" aria-label="Game status">
+        <div>
+          <p class="eyebrow">Maldives Overworld</p>
+          <h1>Maldives Boat Quest</h1>
+        </div>
+        <div class="meters">
+          <div class="meter"><span>Rufiyaa</span><strong id="money">0</strong></div>
+          <div class="meter"><span>Catch</span><strong id="catch">0/8</strong></div>
+          <div class="meter"><span>Net</span><strong id="net">1</strong></div>
+          <div class="meter"><span>Boat</span><strong id="boat">1</strong></div>
+        </div>
+      </section>
+      <section class="message" id="message">
+        <p><strong>Adventure across the Maldives.</strong> Drag or use arrows/WASD to sail. Visit real atoll zones, fish inside reef rings, return to harbors to sell, and upgrade your fishing nets and boat.</p>
+        <div class="actions">
+          <button id="start" type="button">Start Voyage</button>
+          <a href="../../">Game Lab</a>
+        </div>
+      </section>
+      <div class="toast" id="toast">Start at Kaafu / Male. Fish in reef rings, sell at harbor islands.</div>
+      <button class="sound" id="sound" type="button" aria-pressed="true">Sound On</button>
+    </main>
+    <script>
+      (() => {
+        const canvas = document.getElementById("game");
+        const ctx = canvas.getContext("2d");
+        const moneyEl = document.getElementById("money");
+        const catchEl = document.getElementById("catch");
+        const netEl = document.getElementById("net");
+        const boatEl = document.getElementById("boat");
+        const message = document.getElementById("message");
+        const startButton = document.getElementById("start");
+        const toast = document.getElementById("toast");
+        const soundButton = document.getElementById("sound");
+
+        const world = { w: 1700, h: 4200 };
+        const keys = new Set();
+        const atolls = [
+          { name: "Haa Alifu", x: 760, y: 260, rx: 150, ry: 115, harbor: true },
+          { name: "Shaviyani", x: 940, y: 560, rx: 135, ry: 110 },
+          { name: "Noonu", x: 650, y: 860, rx: 150, ry: 130 },
+          { name: "Raa", x: 940, y: 1130, rx: 155, ry: 125 },
+          { name: "Baa", x: 660, y: 1410, rx: 155, ry: 130, harbor: true },
+          { name: "Kaafu / Male", x: 860, y: 1770, rx: 175, ry: 145, harbor: true },
+          { name: "Ari", x: 600, y: 2030, rx: 180, ry: 150 },
+          { name: "Vaavu", x: 1040, y: 2220, rx: 130, ry: 115 },
+          { name: "Meemu", x: 850, y: 2510, rx: 150, ry: 125 },
+          { name: "Laamu", x: 620, y: 2850, rx: 160, ry: 135, harbor: true },
+          { name: "Huvadhu", x: 910, y: 3290, rx: 220, ry: 175 },
+          { name: "Fuvahmulah", x: 690, y: 3710, rx: 100, ry: 78 },
+          { name: "Addu", x: 910, y: 3950, rx: 170, ry: 120, harbor: true }
+        ];
+        const fishSpots = atolls.map((a, index) => ({
+          x: a.x + Math.sin(index * 2.1) * a.rx * 0.45,
+          y: a.y + Math.cos(index * 1.7) * a.ry * 0.45,
+          stock: 4 + (index % 4),
+          max: 4 + (index % 4),
+          atoll: a.name
+        }));
+
+        const state = {
+          w: 0, h: 0, dpr: 1, playing: false, muted: false, time: 0,
+          camera: { x: 0, y: 0 },
+          target: { x: 860, y: 1770, active: false },
+          boat: { x: 860, y: 1770, vx: 0, vy: 0, angle: 0, level: 1, net: 1, catch: 0, capacity: 8, money: 0 },
+          ripples: [],
+          pings: [],
+          audio: null
+        };
+
+        function setupAudio() {
+          if (state.muted) return;
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          if (!AudioContext) return;
+          state.audio ||= new AudioContext();
+          if (state.audio.state === "suspended") state.audio.resume();
+        }
+
+        function tone(kind) {
+          if (state.muted || !state.audio) return;
+          const now = state.audio.currentTime;
+          const osc = state.audio.createOscillator();
+          const gain = state.audio.createGain();
+          const map = {
+            fish: [420, 760, 0.16, "sine"],
+            sell: [260, 620, 0.28, "triangle"],
+            upgrade: [340, 900, 0.34, "sine"],
+            bump: [110, 70, 0.14, "sawtooth"]
+          }[kind] || [220, 110, 0.12, "sine"];
+          osc.type = map[3];
+          osc.frequency.setValueAtTime(map[0], now);
+          osc.frequency.exponentialRampToValueAtTime(map[1], now + map[2]);
+          gain.gain.setValueAtTime(0.001, now);
+          gain.gain.exponentialRampToValueAtTime(kind === "bump" ? 0.12 : 0.14, now + 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + map[2]);
+          osc.connect(gain);
+          gain.connect(state.audio.destination);
+          osc.start(now);
+          osc.stop(now + map[2] + 0.03);
+        }
+
+        function resize() {
+          const rect = canvas.parentElement.getBoundingClientRect();
+          state.dpr = Math.min(window.devicePixelRatio || 1, 2);
+          state.w = Math.floor(rect.width);
+          state.h = Math.floor(rect.height);
+          canvas.width = Math.floor(state.w * state.dpr);
+          canvas.height = Math.floor(state.h * state.dpr);
+          canvas.style.width = `${state.w}px`;
+          canvas.style.height = `${state.h}px`;
+          ctx.setTransform(state.dpr, 0, 0, state.dpr, 0, 0);
+        }
+
+        function reset() {
+          setupAudio();
+          state.playing = true;
+          state.time = 0;
+          state.boat = { x: 860, y: 1770, vx: 0, vy: 0, angle: 0, level: 1, net: 1, catch: 0, capacity: 8, money: 0 };
+          fishSpots.forEach((s) => { s.stock = s.max; });
+          state.ripples = [];
+          state.pings = [];
+          message.hidden = true;
+          setToast("Departed Kaafu / Male. Follow the atoll chain north or south.");
+          updateHud();
+          tone("sell");
+        }
+
+        function setToast(text) { toast.textContent = text; }
+        function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+        function screenX(x) { return x - state.camera.x; }
+        function screenY(y) { return y - state.camera.y; }
+        function capacity() { return 8 + (state.boat.level - 1) * 5; }
+
+        function updateHud() {
+          moneyEl.textContent = String(Math.round(state.boat.money));
+          catchEl.textContent = `${state.boat.catch}/${capacity()}`;
+          netEl.textContent = String(state.boat.net);
+          boatEl.textContent = String(state.boat.level);
+        }
+
+        function pointerWorld(event) {
+          const rect = canvas.getBoundingClientRect();
+          return { x: event.clientX - rect.left + state.camera.x, y: event.clientY - rect.top + state.camera.y };
+        }
+
+        function nearestHarbor() {
+          let best = null;
+          for (const atoll of atolls.filter((a) => a.harbor)) {
+            const d = Math.hypot(atoll.x - state.boat.x, atoll.y - state.boat.y);
+            if (!best || d < best.d) best = { atoll, d };
+          }
+          return best;
+        }
+
+        function fish() {
+          const boat = state.boat;
+          const spot = fishSpots.find((s) => Math.hypot(s.x - boat.x, s.y - boat.y) < 82 && s.stock > 0);
+          if (!spot) return;
+          const room = capacity() - boat.catch;
+          if (room <= 0) { setToast("Hold is full. Return to a harbor to sell."); return; }
+          const haul = Math.min(room, spot.stock, boat.net);
+          boat.catch += haul;
+          spot.stock -= haul;
+          state.pings.push({ x: spot.x, y: spot.y, life: 0.8, color: "#e9b85d" });
+          setToast(`Nets hauled ${haul} fish near ${spot.atoll}.`);
+          tone("fish");
+          updateHud();
+        }
+
+        function harborActions() {
+          const near = nearestHarbor();
+          if (!near || near.d > 115) return;
+          const boat = state.boat;
+          if (boat.catch > 0) {
+            const earned = boat.catch * (18 + boat.net * 4);
+            boat.money += earned;
+            boat.catch = 0;
+            setToast(`Sold catch at ${near.atoll} for ${earned} rufiyaa.`);
+            tone("sell");
+          } else if (boat.money >= boat.net * 90 && boat.net < 5) {
+            const cost = boat.net * 90;
+            boat.money -= cost;
+            boat.net += 1;
+            setToast(`Upgraded fishing nets to level ${boat.net}.`);
+            tone("upgrade");
+          } else if (boat.money >= boat.level * 120 && boat.level < 5) {
+            const cost = boat.level * 120;
+            boat.money -= cost;
+            boat.level += 1;
+            setToast(`Upgraded boat to level ${boat.level}: faster and bigger hold.`);
+            tone("upgrade");
+          } else {
+            setToast(`${near.atoll} harbor: sell fish, then upgrades buy automatically when you have enough rufiyaa.`);
+          }
+          updateHud();
+        }
+
+        function moveBoat(dt) {
+          const boat = state.boat;
+          let ax = 0, ay = 0;
+          if (keys.has("ArrowLeft") || keys.has("a")) ax -= 1;
+          if (keys.has("ArrowRight") || keys.has("d")) ax += 1;
+          if (keys.has("ArrowUp") || keys.has("w")) ay -= 1;
+          if (keys.has("ArrowDown") || keys.has("s")) ay += 1;
+          if (state.target.active) {
+            const dx = state.target.x - boat.x;
+            const dy = state.target.y - boat.y;
+            const len = Math.hypot(dx, dy);
+            if (len > 28) { ax += dx / len; ay += dy / len; }
+          }
+          const len = Math.hypot(ax, ay) || 1;
+          const speed = 330 + boat.level * 74;
+          boat.vx += ax / len * speed * dt;
+          boat.vy += ay / len * speed * dt;
+          boat.vx *= 0.91;
+          boat.vy *= 0.91;
+          boat.x = clamp(boat.x + boat.vx * dt, 80, world.w - 80);
+          boat.y = clamp(boat.y + boat.vy * dt, 90, world.h - 90);
+          boat.angle = Math.atan2(boat.vy, boat.vx || 1);
+          state.camera.x = clamp(boat.x - state.w * 0.5, 0, world.w - state.w);
+          state.camera.y = clamp(boat.y - state.h * 0.54, 0, world.h - state.h);
+        }
+
+        function update(dt) {
+          state.time += dt;
+          if (!state.playing) return;
+          moveBoat(dt);
+          const boat = state.boat;
+          if (Math.random() < dt * 16) state.ripples.push({ x: boat.x - Math.cos(boat.angle) * 26, y: boat.y - Math.sin(boat.angle) * 26, life: 0.55 });
+          state.ripples.forEach((r) => r.life -= dt);
+          state.ripples = state.ripples.filter((r) => r.life > 0);
+          state.pings.forEach((p) => p.life -= dt);
+          state.pings = state.pings.filter((p) => p.life > 0);
+          const spot = fishSpots.find((s) => Math.hypot(s.x - boat.x, s.y - boat.y) < 82 && s.stock > 0);
+          if (spot && Math.random() < dt * (0.9 + boat.net * 0.45)) fish();
+          const near = nearestHarbor();
+          if (near && near.d < 105 && Math.random() < dt * 1.8) harborActions();
+        }
+
+        function drawOcean() {
+          const g = ctx.createLinearGradient(0, 0, 0, state.h);
+          g.addColorStop(0, "#31a7aa");
+          g.addColorStop(0.48, "#126a78");
+          g.addColorStop(1, "#062026");
+          ctx.fillStyle = g;
+          ctx.fillRect(0, 0, state.w, state.h);
+          ctx.strokeStyle = "rgba(245,241,223,.16)";
+          ctx.lineWidth = 2;
+          for (let y = -state.camera.y % 88; y < state.h + 90; y += 88) {
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.bezierCurveTo(state.w * 0.25, y + 22, state.w * 0.68, y - 18, state.w, y + 8);
+            ctx.stroke();
+          }
+        }
+
+        function drawAtolls() {
+          for (const atoll of atolls) {
+            const x = screenX(atoll.x), y = screenY(atoll.y);
+            if (x < -260 || x > state.w + 260 || y < -260 || y > state.h + 260) continue;
+            ctx.strokeStyle = "rgba(142,221,209,.72)";
+            ctx.lineWidth = 8;
+            ctx.beginPath();
+            ctx.ellipse(x, y, atoll.rx, atoll.ry, Math.sin(atoll.y) * 0.12, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.strokeStyle = "rgba(241,216,155,.75)";
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.ellipse(x, y, atoll.rx * 0.72, atoll.ry * 0.68, Math.sin(atoll.y) * 0.12, 0, Math.PI * 2);
+            ctx.stroke();
+            for (let i = 0; i < 8; i += 1) {
+              const a = i / 8 * Math.PI * 2 + atoll.x * 0.01;
+              ctx.fillStyle = atoll.harbor && i === 0 ? "#e9b85d" : "#f1d89b";
+              ctx.beginPath();
+              ctx.arc(x + Math.cos(a) * atoll.rx * 0.75, y + Math.sin(a) * atoll.ry * 0.7, atoll.harbor && i === 0 ? 10 : 5, 0, Math.PI * 2);
+              ctx.fill();
+            }
+            ctx.fillStyle = "rgba(245,241,223,.82)";
+            ctx.font = "800 12px system-ui";
+            ctx.textAlign = "center";
+            ctx.fillText(atoll.name, x, y + atoll.ry + 24);
+          }
+        }
+
+        function drawFishSpots() {
+          for (const spot of fishSpots) {
+            if (spot.stock <= 0) continue;
+            const x = screenX(spot.x), y = screenY(spot.y);
+            ctx.strokeStyle = "#e9b85d";
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(x, y, 30 + Math.sin(state.time * 4) * 4, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.fillStyle = "#f5f1df";
+            for (let i = 0; i < spot.stock; i += 1) {
+              ctx.beginPath();
+              ctx.ellipse(x + Math.cos(i) * 12, y + Math.sin(i * 1.7) * 10, 6, 3, 0, 0, Math.PI * 2);
+              ctx.fill();
+            }
+          }
+        }
+
+        function drawBoat() {
+          const boat = state.boat;
+          const x = screenX(boat.x), y = screenY(boat.y);
+          ctx.save();
+          ctx.translate(x, y);
+          ctx.rotate(boat.angle);
+          ctx.fillStyle = "#f5f1df";
+          ctx.beginPath();
+          ctx.moveTo(32, 0);
+          ctx.quadraticCurveTo(8, -18, -34, -12);
+          ctx.lineTo(-34, 12);
+          ctx.quadraticCurveTo(8, 18, 32, 0);
+          ctx.fill();
+          ctx.fillStyle = "#d45f49";
+          ctx.fillRect(-8, -9, 18, 18);
+          ctx.strokeStyle = "#e9b85d";
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.arc(-22, 0, 18 + boat.net * 4, -0.9, 0.9);
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        function drawEffects() {
+          ctx.strokeStyle = "rgba(245,241,223,.5)";
+          for (const ripple of state.ripples) {
+            ctx.globalAlpha = Math.max(0, ripple.life / 0.55);
+            ctx.beginPath();
+            ctx.arc(screenX(ripple.x), screenY(ripple.y), 8 + (1 - ripple.life) * 24, 0, Math.PI * 2);
+            ctx.stroke();
+          }
+          ctx.globalAlpha = 1;
+          for (const ping of state.pings) {
+            ctx.strokeStyle = ping.color;
+            ctx.globalAlpha = Math.max(0, ping.life);
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(screenX(ping.x), screenY(ping.y), 20 + (1 - ping.life) * 62, 0, Math.PI * 2);
+            ctx.stroke();
+          }
+          ctx.globalAlpha = 1;
+        }
+
+        function drawMiniMap() {
+          const x = 16, y = Math.max(122, state.h - 172), w = 84, h = 136;
+          ctx.fillStyle = "rgba(6,32,38,.58)";
+          ctx.fillRect(x, y, w, h);
+          ctx.strokeStyle = "rgba(245,241,223,.24)";
+          ctx.strokeRect(x, y, w, h);
+          ctx.fillStyle = "#8eddd1";
+          for (const atoll of atolls) {
+            ctx.beginPath();
+            ctx.arc(x + atoll.x / world.w * w, y + atoll.y / world.h * h, atoll.harbor ? 3 : 2, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          ctx.fillStyle = "#e9b85d";
+          ctx.beginPath();
+          ctx.arc(x + state.boat.x / world.w * w, y + state.boat.y / world.h * h, 4, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        function draw() {
+          drawOcean();
+          drawAtolls();
+          drawFishSpots();
+          drawEffects();
+          drawBoat();
+          drawMiniMap();
+        }
+
+        let last = performance.now();
+        function frame(now) {
+          const dt = Math.min(0.033, (now - last) / 1000);
+          last = now;
+          update(dt);
+          draw();
+          requestAnimationFrame(frame);
+        }
+
+        canvas.addEventListener("pointerdown", (event) => {
+          event.preventDefault();
+          setupAudio();
+          if (!state.playing) { reset(); return; }
+          state.target = { ...pointerWorld(event), active: true };
+          fish();
+          harborActions();
+        });
+        canvas.addEventListener("pointermove", (event) => {
+          if (!state.playing) return;
+          state.target = { ...pointerWorld(event), active: true };
+        });
+        window.addEventListener("pointerup", () => { state.target.active = false; });
+        window.addEventListener("keydown", (event) => {
+          keys.add(event.key);
+          if (event.key === " ") { fish(); harborActions(); }
+          if (event.key === "Enter" && !state.playing) reset();
+        });
+        window.addEventListener("keyup", (event) => keys.delete(event.key));
+        startButton.addEventListener("click", reset);
+        soundButton.addEventListener("click", () => {
+          state.muted = !state.muted;
+          soundButton.textContent = state.muted ? "Sound Off" : "Sound On";
+          soundButton.setAttribute("aria-pressed", String(!state.muted));
+          if (!state.muted) setupAudio();
+        });
+        window.addEventListener("resize", resize);
+        resize();
+        updateHud();
+        requestAnimationFrame(frame);
+      })();
+    </script>
+  </body>
+</html>
