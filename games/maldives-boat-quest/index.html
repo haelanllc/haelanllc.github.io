@@ -263,20 +263,22 @@
           { name: "Addu", x: 910, y: 3950, rx: 170, ry: 120, harbor: true }
         ];
         const maldivesFish = [
-          { common: "skipjack tuna", local: "kandumas", value: 26, color: "#d9e7e5", accent: "#273f48", shape: "tuna", size: 1.05 },
-          { common: "yellowfin tuna", local: "kanneli", value: 34, color: "#d7dfe2", accent: "#e9b85d", shape: "tuna", size: 1.15 },
-          { common: "little tunny", local: "latti", value: 22, color: "#aebfc2", accent: "#283d43", shape: "tuna", size: 0.92 },
-          { common: "frigate tuna", local: "raagondi", value: 24, color: "#c9d7d8", accent: "#31454d", shape: "tuna", size: 0.88 },
-          { common: "bigeye scad", local: "mushimas", value: 18, color: "#f5f1df", accent: "#d8c36f", shape: "scad", size: 0.75 },
-          { common: "wahoo", local: "kurumas", value: 38, color: "#b9e4e5", accent: "#2a6c78", shape: "needle", size: 1.28 },
-          { common: "mahi-mahi", local: "fiyala", value: 36, color: "#e9d56a", accent: "#31a7aa", shape: "mahi", size: 1.2 },
-          { common: "bluefin jack", local: "handi", value: 28, color: "#8eddd1", accent: "#245d75", shape: "jack", size: 0.95 },
-          { common: "mackerel scad", local: "rimmas", value: 17, color: "#d7e8e7", accent: "#7a8c8c", shape: "scad", size: 0.72 },
-          { common: "reef grouper", local: "faana", value: 32, color: "#d45f49", accent: "#f1d89b", shape: "grouper", size: 1.05 },
-          { common: "red snapper", local: "raiymas", value: 30, color: "#e87c61", accent: "#f5f1df", shape: "snapper", size: 0.98 },
-          { common: "barracuda", local: "farumas", value: 31, color: "#cfe7e1", accent: "#5d7d7f", shape: "needle", size: 1.35 },
-          { common: "rainbow runner", local: "magoodhoo mas", value: 27, color: "#8eddd1", accent: "#e9b85d", shape: "runner", size: 0.98 }
+          { common: "skipjack tuna", local: "kandumas", value: 26, color: "#d9e7e5", accent: "#273f48", shape: "tuna", size: 1.05, sprite: [64, 44, 420, 148] },
+          { common: "yellowfin tuna", local: "kanneli", value: 34, color: "#d7dfe2", accent: "#e9b85d", shape: "tuna", size: 1.15, sprite: [536, 42, 430, 156] },
+          { common: "little tunny", local: "latti", value: 22, color: "#aebfc2", accent: "#283d43", shape: "tuna", size: 0.92, sprite: [1032, 58, 386, 126] },
+          { common: "frigate tuna", local: "raagondi", value: 24, color: "#c9d7d8", accent: "#31454d", shape: "tuna", size: 0.88, sprite: [50, 252, 438, 146] },
+          { common: "bigeye scad", local: "mushimas", value: 18, color: "#f5f1df", accent: "#d8c36f", shape: "scad", size: 0.75, sprite: [560, 248, 358, 144] },
+          { common: "wahoo", local: "kurumas", value: 38, color: "#b9e4e5", accent: "#2a6c78", shape: "needle", size: 1.28, sprite: [1028, 258, 424, 132] },
+          { common: "mahi-mahi", local: "fiyala", value: 36, color: "#e9d56a", accent: "#31a7aa", shape: "mahi", size: 1.2, sprite: [42, 440, 432, 144] },
+          { common: "bluefin jack", local: "handi", value: 28, color: "#8eddd1", accent: "#245d75", shape: "jack", size: 0.95, sprite: [546, 440, 414, 136] },
+          { common: "mackerel scad", local: "rimmas", value: 17, color: "#d7e8e7", accent: "#7a8c8c", shape: "scad", size: 0.72, sprite: [1020, 446, 420, 132] },
+          { common: "reef grouper", local: "faana", value: 32, color: "#d45f49", accent: "#f1d89b", shape: "grouper", size: 1.05, sprite: [52, 628, 412, 144] },
+          { common: "red snapper", local: "raiymas", value: 30, color: "#e87c61", accent: "#f5f1df", shape: "snapper", size: 0.98, sprite: [530, 638, 370, 132] },
+          { common: "barracuda", local: "farumas", value: 31, color: "#cfe7e1", accent: "#5d7d7f", shape: "needle", size: 1.35, sprite: [1002, 640, 456, 116] },
+          { common: "rainbow runner", local: "magoodhoo mas", value: 27, color: "#8eddd1", accent: "#e9b85d", shape: "runner", size: 0.98, sprite: [466, 818, 444, 132] }
         ];
+        const fishSpriteSheet = new Image();
+        fishSpriteSheet.src = "../../assets/sprites/maldives-fish-sprites.png";
         const fishSpots = atolls.flatMap((a, atollIndex) => [0, 1].map((shoalIndex) => {
           const index = atollIndex * 2 + shoalIndex;
           const spread = shoalIndex ? 0.58 : 0.36;
@@ -758,6 +760,14 @@
           ctx.save();
           ctx.translate(x, y);
           ctx.rotate(angle);
+          if (fishSpriteSheet.complete && fishSpriteSheet.naturalWidth && species.sprite) {
+            const [sx, sy, sw, sh] = species.sprite;
+            const renderW = sw * 0.09 * s;
+            const renderH = sh * 0.09 * s;
+            ctx.drawImage(fishSpriteSheet, sx, sy, sw, sh, -renderW * 0.5, -renderH * 0.5, renderW, renderH);
+            ctx.restore();
+            return;
+          }
           ctx.fillStyle = species.color;
           ctx.strokeStyle = "rgba(6,32,38,.45)";
           ctx.lineWidth = 1;
