@@ -153,7 +153,7 @@
         color: var(--paper);
         backdrop-filter: blur(12px);
       }
-      .net-button, .upgrade-button {
+      .net-button, .dock-button, .upgrade-button {
         position: absolute;
         z-index: 4;
         bottom: max(58px, calc(env(safe-area-inset-bottom) + 58px));
@@ -162,6 +162,10 @@
       }
       .net-button {
         left: 112px;
+        min-width: 74px;
+      }
+      .dock-button {
+        left: 194px;
         min-width: 74px;
       }
       .net-button[aria-pressed="true"] {
@@ -205,7 +209,7 @@
         </div>
       </section>
       <section class="message" id="message">
-        <p><strong>Adventure across the Maldives.</strong> Drag to sail. Tap Net, then pull back to aim a dotted throw line and release onto fish shoals. Upgrade Net or Sonar at harbors. Your voyage saves automatically.</p>
+        <p><strong>Adventure across the Maldives.</strong> Drag to sail. Tap Net to cast. At harbor islands, tap Dock to get out, walk to the market hut, sell fish, then upgrade. Your voyage saves automatically.</p>
         <div class="actions">
           <button id="start" type="button">Start Voyage</button>
           <a href="../../">Game Lab</a>
@@ -221,6 +225,7 @@
         <button id="upgrade-close" type="button">Close</button>
       </section>
       <button class="net-button" id="net-cast" type="button" aria-pressed="false">Net</button>
+      <button class="dock-button" id="dock" type="button">Dock</button>
       <button class="upgrade-button" id="upgrade" type="button">Upgrade</button>
       <button class="sound" id="sound" type="button" aria-pressed="true">Sound On</button>
     </main>
@@ -237,6 +242,7 @@
         const toast = document.getElementById("toast");
         const soundButton = document.getElementById("sound");
         const netCastButton = document.getElementById("net-cast");
+        const dockButton = document.getElementById("dock");
         const upgradeButton = document.getElementById("upgrade");
         const upgradePanel = document.getElementById("upgrade-panel");
         const upgradeCopy = document.getElementById("upgrade-copy");
@@ -304,6 +310,7 @@
           camera: { x: 0, y: 0 },
           target: { x: 860, y: 1770, active: false },
           cast: { armed: false, active: false, pointerId: null, startX: 0, startY: 0, x: 0, y: 0, power: 0 },
+          player: { onLand: false, x: 860, y: 1770, targetX: 860, targetY: 1770, atoll: "Kaafu / Male" },
           boat: newBoat(),
           nets: [],
           ripples: [],
@@ -364,6 +371,7 @@
           state.playing = true;
           state.time = 0;
           state.boat = newBoat();
+          state.player = { onLand: false, x: state.boat.x, y: state.boat.y, targetX: state.boat.x, targetY: state.boat.y, atoll: "Kaafu / Male" };
           fishSpots.forEach((s, index) => {
             s.stock = s.max;
             s.vx = Math.sin(index * 1.3) * 9;
@@ -373,8 +381,9 @@
           state.ripples = [];
           state.pings = [];
           setNetArmed(false);
+          updateDockButton();
           message.hidden = true;
-          setToast("Departed Kaafu / Male. Drag to sail. Tap Net when you want to throw.");
+          setToast("Departed Kaafu / Male. Drag to sail. Tap Dock at harbor islands to walk ashore.");
           updateHud();
           saveGame();
           tone("sell");
@@ -404,6 +413,7 @@
               money: state.boat.money,
               hold: state.boat.hold
             },
+            player: state.player,
             fish: fishSpots.map((spot) => ({ x: spot.x, y: spot.y, stock: spot.stock, restock: spot.restock }))
           };
           try {
@@ -419,6 +429,7 @@
             const data = JSON.parse(localStorage.getItem(saveKey) || "null");
             if (!data?.boat) return false;
             state.boat = { ...newBoat(), ...data.boat, vx: 0, vy: 0, angle: 0, hold: data.boat.hold || {} };
+            state.player = { onLand: false, x: state.boat.x, y: state.boat.y, targetX: state.boat.x, targetY: state.boat.y, atoll: "Kaafu / Male", ...(data.player || {}) };
             fishSpots.forEach((spot, index) => {
               const saved = data.fish?.[index];
               if (saved) {
@@ -426,6 +437,7 @@
                 spot.y = saved.y;
                 spot.stock = saved.stock;
                 spot.restock = saved.stock > 0 ? 0 : Math.min(saved.restock ?? 3, 3);
+                if (spot.x < 0 || spot.x > world.w || spot.y < 0 || spot.y > world.h) placeSpotInAtoll(spot);
               } else {
                 spot.stock = spot.max;
                 spot.restock = 0;
@@ -437,6 +449,7 @@
             state.ripples = [];
             state.pings = [];
             setNetArmed(false);
+            updateDockButton();
             return true;
           } catch {
             return false;
@@ -453,6 +466,9 @@
           }
           netCastButton.setAttribute("aria-pressed", String(armed));
           netCastButton.textContent = armed ? "Aim Net" : "Net";
+        }
+        function updateDockButton() {
+          dockButton.textContent = state.player.onLand ? "Boat" : "Dock";
         }
         function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
         function screenX(x) { return x - state.camera.x; }
@@ -473,11 +489,20 @@
 
         function nearestHarbor() {
           let best = null;
+          const actor = state.player.onLand ? state.player : state.boat;
           for (const atoll of atolls.filter((a) => a.harbor)) {
-            const d = Math.hypot(atoll.x - state.boat.x, atoll.y - state.boat.y);
+            const d = Math.hypot(atoll.x - actor.x, atoll.y - actor.y);
             if (!best || d < best.d) best = { atoll, d };
           }
           return best;
+        }
+
+        function marketPoint(atoll) {
+          return { x: atoll.x + atoll.rx * 0.34, y: atoll.y - atoll.ry * 0.22 };
+        }
+
+        function playerAtoll() {
+          return atolls.find((a) => a.name === state.player.atoll) || nearestHarbor()?.atoll;
         }
 
         function placeSpotInAtoll(spot) {
@@ -535,9 +560,7 @@
           saveGame();
         }
 
-        function harborActions() {
-          const near = nearestHarbor();
-          if (!near || near.d > 115) return;
+        function sellAtMarket(atoll) {
           const boat = state.boat;
           if (boat.catch > 0) {
             const earned = Object.entries(boat.hold).reduce((sum, [name, count]) => {
@@ -551,13 +574,22 @@
             boat.money += earned;
             boat.catch = 0;
             boat.hold = {};
-            setToast(`Sold ${summary} at ${near.atoll} for ${earned} rufiyaa.`);
+            setToast(`Sold ${summary} at ${atoll.name} market for ${earned} rufiyaa.`);
             tone("sell");
           } else {
+            setToast(`${atoll.name} market is open. Bring fish ashore to sell.`);
             return;
           }
           updateHud();
           saveGame();
+        }
+
+        function harborActions() {
+          if (!state.player.onLand) return;
+          const atoll = playerAtoll();
+          if (!atoll?.harbor) return;
+          const market = marketPoint(atoll);
+          if (Math.hypot(state.player.x - market.x, state.player.y - market.y) < 42) sellAtMarket(atoll);
         }
 
         function upgradeCost(kind) {
@@ -584,7 +616,7 @@
 
         function buyUpgrade(kind) {
           const near = nearestHarbor();
-          if (!near || near.d > 125) {
+          if (!near || near.d > 125 || (state.player.onLand && playerAtoll()?.name !== near.atoll.name)) {
             upgradePanel.hidden = true;
             setToast("You need to be at a harbor to upgrade.");
             return;
@@ -612,8 +644,50 @@
           saveGame();
         }
 
+        function toggleDock() {
+          if (!state.playing) { startVoyage(); return; }
+          if (state.player.onLand) {
+            const atoll = playerAtoll();
+            if (!atoll) return;
+            state.boat.x = state.player.x;
+            state.boat.y = state.player.y;
+            state.boat.vx = 0;
+            state.boat.vy = 0;
+            state.player.onLand = false;
+            state.target.active = false;
+            setToast(`Back in the boat at ${atoll.name}. Drag to sail.`);
+            updateDockButton();
+            saveGame();
+            return;
+          }
+          const near = nearestHarbor();
+          if (!near || near.d > 135) {
+            setToast("Dock at a gold harbor island before getting out.");
+            return;
+          }
+          const dockAngle = near.atoll.x * 0.01;
+          state.player = {
+            onLand: true,
+            x: near.atoll.x + Math.cos(dockAngle) * near.atoll.rx * 0.58,
+            y: near.atoll.y + Math.sin(dockAngle) * near.atoll.ry * 0.54,
+            targetX: near.atoll.x + Math.cos(dockAngle) * near.atoll.rx * 0.58,
+            targetY: near.atoll.y + Math.sin(dockAngle) * near.atoll.ry * 0.54,
+            atoll: near.atoll.name
+          };
+          state.target.active = false;
+          setNetArmed(false);
+          setToast(`Docked at ${near.atoll.name}. Walk to the hut to sell fish.`);
+          updateDockButton();
+          saveGame();
+        }
+
         function moveBoat(dt) {
           const boat = state.boat;
+          if (state.player.onLand) {
+            boat.vx *= 0.8;
+            boat.vy *= 0.8;
+            return;
+          }
           let ax = 0, ay = 0;
           if (keys.has("ArrowLeft") || keys.has("a")) ax -= 1;
           if (keys.has("ArrowRight") || keys.has("d")) ax += 1;
@@ -638,10 +712,40 @@
           state.camera.y = clamp(boat.y - state.h * 0.54, 0, world.h - state.h);
         }
 
+        function movePlayer(dt) {
+          if (!state.player.onLand) return;
+          const atoll = playerAtoll();
+          if (!atoll) return;
+          const player = state.player;
+          let ax = 0, ay = 0;
+          if (keys.has("ArrowLeft") || keys.has("a")) ax -= 1;
+          if (keys.has("ArrowRight") || keys.has("d")) ax += 1;
+          if (keys.has("ArrowUp") || keys.has("w")) ay -= 1;
+          if (keys.has("ArrowDown") || keys.has("s")) ay += 1;
+          const dx = player.targetX - player.x;
+          const dy = player.targetY - player.y;
+          const targetDistance = Math.hypot(dx, dy);
+          if (targetDistance > 10) { ax += dx / targetDistance; ay += dy / targetDistance; }
+          const len = Math.hypot(ax, ay) || 1;
+          const speed = 185;
+          player.x += ax / len * speed * dt;
+          player.y += ay / len * speed * dt;
+          const islandRx = atoll.rx * 0.66;
+          const islandRy = atoll.ry * 0.62;
+          const edge = Math.hypot((player.x - atoll.x) / islandRx, (player.y - atoll.y) / islandRy);
+          if (edge > 1) {
+            player.x = atoll.x + (player.x - atoll.x) / edge;
+            player.y = atoll.y + (player.y - atoll.y) / edge;
+          }
+          state.camera.x = clamp(player.x - state.w * 0.5, 0, world.w - state.w);
+          state.camera.y = clamp(player.y - state.h * 0.54, 0, world.h - state.h);
+        }
+
         function update(dt) {
           state.time += dt;
           if (!state.playing) return;
           moveBoat(dt);
+          movePlayer(dt);
           const boat = state.boat;
           if (Math.random() < dt * 16) state.ripples.push({ x: boat.x - Math.cos(boat.angle) * 26, y: boat.y - Math.sin(boat.angle) * 26, life: 0.55 });
           state.ripples.forEach((r) => r.life -= dt);
@@ -668,8 +772,8 @@
               if (edge > 0.75) {
                 spot.vx *= -0.7;
                 spot.vy *= -0.7;
-                spot.x = atoll.x + dx / edge * atoll.rx * 0.72;
-                spot.y = atoll.y + dy / edge * atoll.ry * 0.72;
+                spot.x = atoll.x + dx / edge * 0.72;
+                spot.y = atoll.y + dy / edge * 0.72;
               }
             }
           }
@@ -718,12 +822,33 @@
             ctx.beginPath();
             ctx.ellipse(x, y, atoll.rx * 0.72, atoll.ry * 0.68, Math.sin(atoll.y) * 0.12, 0, Math.PI * 2);
             ctx.stroke();
+            ctx.fillStyle = atoll.harbor ? "rgba(241,216,155,.62)" : "rgba(241,216,155,.34)";
+            ctx.beginPath();
+            ctx.ellipse(x, y, atoll.rx * 0.48, atoll.ry * 0.42, Math.sin(atoll.y) * 0.12, 0, Math.PI * 2);
+            ctx.fill();
             for (let i = 0; i < 8; i += 1) {
               const a = i / 8 * Math.PI * 2 + atoll.x * 0.01;
               ctx.fillStyle = atoll.harbor && i === 0 ? "#e9b85d" : "#f1d89b";
               ctx.beginPath();
               ctx.arc(x + Math.cos(a) * atoll.rx * 0.75, y + Math.sin(a) * atoll.ry * 0.7, atoll.harbor && i === 0 ? 10 : 5, 0, Math.PI * 2);
               ctx.fill();
+            }
+            if (atoll.harbor) {
+              const market = marketPoint(atoll);
+              const mx = screenX(market.x), my = screenY(market.y);
+              ctx.fillStyle = "#d45f49";
+              ctx.fillRect(mx - 16, my - 12, 32, 24);
+              ctx.fillStyle = "#f5f1df";
+              ctx.beginPath();
+              ctx.moveTo(mx - 20, my - 12);
+              ctx.lineTo(mx, my - 28);
+              ctx.lineTo(mx + 20, my - 12);
+              ctx.closePath();
+              ctx.fill();
+              ctx.fillStyle = "rgba(6,32,38,.78)";
+              ctx.font = "800 10px system-ui";
+              ctx.textAlign = "center";
+              ctx.fillText("MARKET", mx, my + 25);
             }
             ctx.fillStyle = "rgba(245,241,223,.82)";
             ctx.font = "800 12px system-ui";
@@ -949,6 +1074,29 @@
           ctx.restore();
         }
 
+        function drawPlayer() {
+          if (!state.player.onLand) return;
+          const x = screenX(state.player.x), y = screenY(state.player.y);
+          ctx.save();
+          ctx.fillStyle = "#062026";
+          ctx.beginPath();
+          ctx.arc(x, y, 12, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = "#e9b85d";
+          ctx.beginPath();
+          ctx.arc(x, y - 6, 5, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = "#f5f1df";
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.moveTo(x, y - 1);
+          ctx.lineTo(x, y + 12);
+          ctx.moveTo(x - 8, y + 4);
+          ctx.lineTo(x + 8, y + 4);
+          ctx.stroke();
+          ctx.restore();
+        }
+
         function drawSonar() {
           if (!state.playing || state.boat.sonar < 2) return;
           const boat = state.boat;
@@ -1012,6 +1160,7 @@
           drawSonar();
           drawCastAim();
           drawBoat();
+          drawPlayer();
           drawMiniMap();
         }
 
@@ -1030,6 +1179,12 @@
           if (!state.playing) { startVoyage(); return; }
           const point = pointerWorld(event);
           canvas.setPointerCapture?.(event.pointerId);
+          if (state.player.onLand) {
+            state.player.targetX = point.x;
+            state.player.targetY = point.y;
+            harborActions();
+            return;
+          }
           if (state.cast.armed) {
             state.target.active = false;
             state.cast = { ...state.cast, active: true, pointerId: event.pointerId, startX: point.x, startY: point.y, x: point.x, y: point.y, power: 0 };
@@ -1041,6 +1196,11 @@
         canvas.addEventListener("pointermove", (event) => {
           if (!state.playing) return;
           const point = pointerWorld(event);
+          if (state.player.onLand) {
+            state.player.targetX = point.x;
+            state.player.targetY = point.y;
+            return;
+          }
           if (state.cast.active && state.cast.pointerId === event.pointerId) {
             state.cast.x = point.x;
             state.cast.y = point.y;
@@ -1065,6 +1225,7 @@
         window.addEventListener("keydown", (event) => {
           keys.add(event.key);
           if (event.key === " ") {
+            if (state.player.onLand) { toggleDock(); return; }
             setNetArmed(!state.cast.armed);
             setToast(state.cast.armed ? "Net ready. Pull back on the water, then release to throw." : "Net canceled. Drag to sail.");
           }
@@ -1075,9 +1236,14 @@
         startButton.addEventListener("click", startVoyage);
         netCastButton.addEventListener("click", () => {
           if (!state.playing) { startVoyage(); return; }
+          if (state.player.onLand) {
+            setToast("Get back in the boat before casting the net.");
+            return;
+          }
           setNetArmed(!state.cast.armed);
           setToast(state.cast.armed ? "Net ready. Pull back on the water, then release to throw." : "Net canceled. Drag to sail.");
         });
+        dockButton.addEventListener("click", toggleDock);
         upgradeButton.addEventListener("click", openUpgradePanel);
         upgradeNetButton.addEventListener("click", () => buyUpgrade("net"));
         upgradeSonarButton.addEventListener("click", () => buyUpgrade("sonar"));
