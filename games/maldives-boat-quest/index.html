@@ -210,11 +210,27 @@
           { name: "Fuvahmulah", x: 690, y: 3710, rx: 100, ry: 78 },
           { name: "Addu", x: 910, y: 3950, rx: 170, ry: 120, harbor: true }
         ];
+        const maldivesFish = [
+          { common: "skipjack tuna", local: "kandumas", value: 26, color: "#d9e7e5" },
+          { common: "yellowfin tuna", local: "kanneli", value: 34, color: "#e9b85d" },
+          { common: "little tunny", local: "latti", value: 22, color: "#c7d9d5" },
+          { common: "frigate tuna", local: "raagondi", value: 24, color: "#d6dee0" },
+          { common: "bigeye scad", local: "mushimas", value: 18, color: "#f5f1df" },
+          { common: "wahoo", local: "kurumas", value: 38, color: "#b9e4e5" },
+          { common: "mahi-mahi", local: "fiyala", value: 36, color: "#e9d56a" },
+          { common: "bluefin jack", local: "handi", value: 28, color: "#8eddd1" },
+          { common: "mackerel scad", local: "rimmas", value: 17, color: "#d7e8e7" },
+          { common: "reef grouper", local: "faana", value: 32, color: "#d45f49" },
+          { common: "red snapper", local: "raiymas", value: 30, color: "#e87c61" },
+          { common: "barracuda", local: "farumas", value: 31, color: "#cfe7e1" },
+          { common: "rainbow runner", local: "magoodhoo mas", value: 27, color: "#8eddd1" }
+        ];
         const fishSpots = atolls.map((a, index) => ({
           x: a.x + Math.sin(index * 2.1) * a.rx * 0.45,
           y: a.y + Math.cos(index * 1.7) * a.ry * 0.45,
           vx: Math.sin(index * 1.3) * 9,
           vy: Math.cos(index * 1.9) * 7,
+          species: maldivesFish[index % maldivesFish.length],
           stock: 4 + (index % 4),
           max: 4 + (index % 4),
           atoll: a.name
@@ -224,7 +240,7 @@
           w: 0, h: 0, dpr: 1, playing: false, muted: false, time: 0,
           camera: { x: 0, y: 0 },
           target: { x: 860, y: 1770, active: false },
-          boat: { x: 860, y: 1770, vx: 0, vy: 0, angle: 0, level: 1, net: 1, catch: 0, capacity: 8, money: 0 },
+          boat: { x: 860, y: 1770, vx: 0, vy: 0, angle: 0, level: 1, net: 1, catch: 0, capacity: 8, money: 0, hold: {} },
           nets: [],
           ripples: [],
           pings: [],
@@ -278,7 +294,7 @@
           setupAudio();
           state.playing = true;
           state.time = 0;
-          state.boat = { x: 860, y: 1770, vx: 0, vy: 0, angle: 0, level: 1, net: 1, catch: 0, capacity: 8, money: 0 };
+          state.boat = { x: 860, y: 1770, vx: 0, vy: 0, angle: 0, level: 1, net: 1, catch: 0, capacity: 8, money: 0, hold: {} };
           fishSpots.forEach((s, index) => {
             s.stock = s.max;
             s.vx = Math.sin(index * 1.3) * 9;
@@ -345,10 +361,12 @@
             return;
           }
           const haul = Math.min(room, spot.stock, boat.net + Math.floor((net.r - Math.hypot(spot.x - net.x, spot.y - net.y)) / 35));
+          const species = spot.species;
           boat.catch += haul;
+          boat.hold[species.common] = (boat.hold[species.common] || 0) + haul;
           spot.stock -= haul;
           state.pings.push({ x: spot.x, y: spot.y, life: 0.8, color: "#e9b85d" });
-          setToast(`Net covered the shoal: hauled ${haul} fish near ${spot.atoll}.`);
+          setToast(`Caught ${haul} ${species.common} (${species.local}) near ${spot.atoll}.`);
           tone("fish");
           updateHud();
         }
@@ -358,10 +376,18 @@
           if (!near || near.d > 115) return;
           const boat = state.boat;
           if (boat.catch > 0) {
-            const earned = boat.catch * (18 + boat.net * 4);
+            const earned = Object.entries(boat.hold).reduce((sum, [name, count]) => {
+              const species = maldivesFish.find((fish) => fish.common === name);
+              return sum + count * ((species?.value || 20) + boat.net * 4);
+            }, 0);
+            const summary = Object.entries(boat.hold)
+              .map(([name, count]) => `${count} ${name}`)
+              .slice(0, 3)
+              .join(", ");
             boat.money += earned;
             boat.catch = 0;
-            setToast(`Sold catch at ${near.atoll} for ${earned} rufiyaa.`);
+            boat.hold = {};
+            setToast(`Sold ${summary} at ${near.atoll} for ${earned} rufiyaa.`);
             tone("sell");
           } else if (boat.money >= boat.net * 90 && boat.net < 5) {
             const cost = boat.net * 90;
@@ -501,7 +527,7 @@
             ctx.beginPath();
             ctx.ellipse(x, y, 34 + Math.sin(state.time * 4) * 4, 22, Math.sin(state.time + spot.x) * 0.35, 0, Math.PI * 2);
             ctx.stroke();
-            ctx.fillStyle = "#f5f1df";
+            ctx.fillStyle = spot.species.color;
             for (let i = 0; i < spot.stock; i += 1) {
               ctx.beginPath();
               ctx.ellipse(x + Math.cos(i * 1.4 + state.time) * 16, y + Math.sin(i * 1.7 + state.time) * 9, 7, 3, Math.sin(i), 0, Math.PI * 2);
