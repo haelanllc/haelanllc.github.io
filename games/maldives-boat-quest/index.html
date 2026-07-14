@@ -171,13 +171,13 @@
         </div>
       </section>
       <section class="message" id="message">
-        <p><strong>Adventure across the Maldives.</strong> Drag or use arrows/WASD to sail. Visit real atoll zones, fish inside reef rings, return to harbors to sell, and upgrade your fishing nets and boat.</p>
+        <p><strong>Adventure across the Maldives.</strong> Drag or use arrows/WASD to sail. Move over visible fish shoals, tap or press Space to drop your net on top of them, then return to harbors to sell and upgrade.</p>
         <div class="actions">
           <button id="start" type="button">Start Voyage</button>
           <a href="../../">Game Lab</a>
         </div>
       </section>
-      <div class="toast" id="toast">Start at Kaafu / Male. Fish in reef rings, sell at harbor islands.</div>
+      <div class="toast" id="toast">Start at Kaafu / Male. Place your net directly over fish shoals, then sell at harbor islands.</div>
       <button class="sound" id="sound" type="button" aria-pressed="true">Sound On</button>
     </main>
     <script>
@@ -213,6 +213,8 @@
         const fishSpots = atolls.map((a, index) => ({
           x: a.x + Math.sin(index * 2.1) * a.rx * 0.45,
           y: a.y + Math.cos(index * 1.7) * a.ry * 0.45,
+          vx: Math.sin(index * 1.3) * 9,
+          vy: Math.cos(index * 1.9) * 7,
           stock: 4 + (index % 4),
           max: 4 + (index % 4),
           atoll: a.name
@@ -223,6 +225,7 @@
           camera: { x: 0, y: 0 },
           target: { x: 860, y: 1770, active: false },
           boat: { x: 860, y: 1770, vx: 0, vy: 0, angle: 0, level: 1, net: 1, catch: 0, capacity: 8, money: 0 },
+          nets: [],
           ripples: [],
           pings: [],
           audio: null
@@ -276,11 +279,16 @@
           state.playing = true;
           state.time = 0;
           state.boat = { x: 860, y: 1770, vx: 0, vy: 0, angle: 0, level: 1, net: 1, catch: 0, capacity: 8, money: 0 };
-          fishSpots.forEach((s) => { s.stock = s.max; });
+          fishSpots.forEach((s, index) => {
+            s.stock = s.max;
+            s.vx = Math.sin(index * 1.3) * 9;
+            s.vy = Math.cos(index * 1.9) * 7;
+          });
+          state.nets = [];
           state.ripples = [];
           state.pings = [];
           message.hidden = true;
-          setToast("Departed Kaafu / Male. Follow the atoll chain north or south.");
+          setToast("Departed Kaafu / Male. Place the net on top of a fish shoal.");
           updateHud();
           tone("sell");
         }
@@ -312,17 +320,35 @@
           return best;
         }
 
-        function fish() {
+        function dropNet() {
           const boat = state.boat;
-          const spot = fishSpots.find((s) => Math.hypot(s.x - boat.x, s.y - boat.y) < 82 && s.stock > 0);
-          if (!spot) return;
+          if (capacity() - boat.catch <= 0) { setToast("Hold is full. Return to a harbor to sell."); return; }
+          if (state.nets.some((net) => net.life > 0.2)) return;
+          const radius = 44 + boat.net * 16;
+          state.nets.push({ x: boat.x, y: boat.y, r: radius, life: 0.95, age: 0, resolved: false });
+          setToast(`Net dropped. Cover the shoal inside the ${Math.round(radius)}m circle.`);
+          tone("fish");
+        }
+
+        function resolveNet(net) {
+          const boat = state.boat;
           const room = capacity() - boat.catch;
           if (room <= 0) { setToast("Hold is full. Return to a harbor to sell."); return; }
-          const haul = Math.min(room, spot.stock, boat.net);
+          const spot = fishSpots
+            .filter((s) => s.stock > 0)
+            .map((s) => ({ spot: s, d: Math.hypot(s.x - net.x, s.y - net.y) }))
+            .filter((item) => item.d < net.r)
+            .sort((a, b) => a.d - b.d)[0]?.spot;
+          if (!spot) {
+            setToast("Net came up empty. Put it directly over a visible shoal.");
+            tone("bump");
+            return;
+          }
+          const haul = Math.min(room, spot.stock, boat.net + Math.floor((net.r - Math.hypot(spot.x - net.x, spot.y - net.y)) / 35));
           boat.catch += haul;
           spot.stock -= haul;
           state.pings.push({ x: spot.x, y: spot.y, life: 0.8, color: "#e9b85d" });
-          setToast(`Nets hauled ${haul} fish near ${spot.atoll}.`);
+          setToast(`Net covered the shoal: hauled ${haul} fish near ${spot.atoll}.`);
           tone("fish");
           updateHud();
         }
@@ -350,7 +376,7 @@
             setToast(`Upgraded boat to level ${boat.level}: faster and bigger hold.`);
             tone("upgrade");
           } else {
-            setToast(`${near.atoll} harbor: sell fish, then upgrades buy automatically when you have enough rufiyaa.`);
+            return;
           }
           updateHud();
         }
@@ -391,8 +417,32 @@
           state.ripples = state.ripples.filter((r) => r.life > 0);
           state.pings.forEach((p) => p.life -= dt);
           state.pings = state.pings.filter((p) => p.life > 0);
-          const spot = fishSpots.find((s) => Math.hypot(s.x - boat.x, s.y - boat.y) < 82 && s.stock > 0);
-          if (spot && Math.random() < dt * (0.9 + boat.net * 0.45)) fish();
+          for (const spot of fishSpots) {
+            if (spot.stock <= 0) continue;
+            spot.x += Math.sin(state.time * 0.8 + spot.y * 0.01) * dt * 10 + spot.vx * dt;
+            spot.y += Math.cos(state.time * 0.7 + spot.x * 0.01) * dt * 8 + spot.vy * dt;
+            const atoll = atolls.find((a) => a.name === spot.atoll);
+            if (atoll) {
+              const dx = spot.x - atoll.x;
+              const dy = spot.y - atoll.y;
+              const edge = Math.hypot(dx / atoll.rx, dy / atoll.ry);
+              if (edge > 0.75) {
+                spot.vx *= -0.7;
+                spot.vy *= -0.7;
+                spot.x = atoll.x + dx / edge * atoll.rx * 0.72;
+                spot.y = atoll.y + dy / edge * atoll.ry * 0.72;
+              }
+            }
+          }
+          for (const net of state.nets) {
+            net.age += dt;
+            net.life -= dt;
+            if (!net.resolved && net.age > 0.42) {
+              net.resolved = true;
+              resolveNet(net);
+            }
+          }
+          state.nets = state.nets.filter((net) => net.life > 0);
           const near = nearestHarbor();
           if (near && near.d < 105 && Math.random() < dt * 1.8) harborActions();
         }
@@ -446,16 +496,38 @@
           for (const spot of fishSpots) {
             if (spot.stock <= 0) continue;
             const x = screenX(spot.x), y = screenY(spot.y);
-            ctx.strokeStyle = "#e9b85d";
+            ctx.strokeStyle = "rgba(233,184,93,.72)";
             ctx.lineWidth = 3;
             ctx.beginPath();
-            ctx.arc(x, y, 30 + Math.sin(state.time * 4) * 4, 0, Math.PI * 2);
+            ctx.ellipse(x, y, 34 + Math.sin(state.time * 4) * 4, 22, Math.sin(state.time + spot.x) * 0.35, 0, Math.PI * 2);
             ctx.stroke();
             ctx.fillStyle = "#f5f1df";
             for (let i = 0; i < spot.stock; i += 1) {
               ctx.beginPath();
-              ctx.ellipse(x + Math.cos(i) * 12, y + Math.sin(i * 1.7) * 10, 6, 3, 0, 0, Math.PI * 2);
+              ctx.ellipse(x + Math.cos(i * 1.4 + state.time) * 16, y + Math.sin(i * 1.7 + state.time) * 9, 7, 3, Math.sin(i), 0, Math.PI * 2);
               ctx.fill();
+            }
+          }
+        }
+
+        function drawNets() {
+          for (const net of state.nets) {
+            const x = screenX(net.x), y = screenY(net.y);
+            const progress = Math.min(1, net.age / 0.32);
+            const radius = net.r * progress;
+            ctx.strokeStyle = "rgba(245,241,223,.78)";
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(x, y, radius, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.strokeStyle = "rgba(233,184,93,.45)";
+            ctx.lineWidth = 1;
+            for (let i = 0; i < 8; i += 1) {
+              const a = i / 8 * Math.PI * 2;
+              ctx.beginPath();
+              ctx.moveTo(x, y);
+              ctx.lineTo(x + Math.cos(a) * radius, y + Math.sin(a) * radius);
+              ctx.stroke();
             }
           }
         }
@@ -525,6 +597,7 @@
           drawOcean();
           drawAtolls();
           drawFishSpots();
+          drawNets();
           drawEffects();
           drawBoat();
           drawMiniMap();
@@ -544,7 +617,7 @@
           setupAudio();
           if (!state.playing) { reset(); return; }
           state.target = { ...pointerWorld(event), active: true };
-          fish();
+          dropNet();
           harborActions();
         });
         canvas.addEventListener("pointermove", (event) => {
@@ -554,7 +627,7 @@
         window.addEventListener("pointerup", () => { state.target.active = false; });
         window.addEventListener("keydown", (event) => {
           keys.add(event.key);
-          if (event.key === " ") { fish(); harborActions(); }
+          if (event.key === " ") { dropNet(); harborActions(); }
           if (event.key === "Enter" && !state.playing) reset();
         });
         window.addEventListener("keyup", (event) => keys.delete(event.key));
