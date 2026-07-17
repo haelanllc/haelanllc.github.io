@@ -107,7 +107,7 @@ function gameCard(game, compact = false) {
 }
 
 async function loadGames() {
-  const response = await fetch("/games.json", { cache: "no-store" });
+  const response = await fetch("/games.json?v=wells-fargo-express-run", { cache: "reload" });
   if (!response.ok) throw new Error("Could not load games.json");
   state.games = await response.json();
   return state.games;
