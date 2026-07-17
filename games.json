@@ -1,5 +1,21 @@
 [
   {
+    "id": "stagecoach-gold-run",
+    "title": "Wells Fargo Express Run",
+    "description": "A Ralph Moody-inspired frontier lane-runner: drive the express stage through mine country, grab bullion and mail, pick up miners, bank points, and dodge bandits.",
+    "status": "Ready",
+    "playUrl": "/games/stagecoach-gold-run/",
+    "codeUrl": "",
+    "image": "/assets/thumbnails/stagecoach-gold-run.svg",
+    "tags": [
+      "Canvas",
+      "Arcade",
+      "Runner"
+    ],
+    "learned": "Historical flavor works best when it sharpens a simple arcade loop: collect valuables, carry risk, dodge trouble, and bank before the road turns bad.",
+    "accent": "gold"
+  },
+  {
     "id": "conical-feast",
     "title": "Conical Feast",
     "description": "An octopus-style feast game: aim a conical sonar window, drain prey HP to zero, haul biomass back to the den, and upgrade capacity, speed, health, cone size, and body size.",

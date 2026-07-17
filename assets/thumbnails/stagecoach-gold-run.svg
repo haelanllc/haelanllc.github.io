@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" role="img" aria-labelledby="title desc">
+  <title id="title">Wells Fargo Express Run thumbnail</title>
+  <desc id="desc">A red stagecoach racing down a gold road between a bank, miners, gold, and a bandit.</desc>
+  <rect width="640" height="360" fill="#f5eddc"/>
+  <path d="M0 0h640v210H0z" fill="#9db8bf"/>
+  <path d="M0 190 88 72h98l-72 118zM640 184 548 64h-126l88 120z" fill="#b36b45"/>
+  <path d="M178 46h284l118 314H68z" fill="#ddbe7a"/>
+  <path d="M270 46h24L242 360h-38zM368 46h24l62 314h-38z" fill="#7b5633" opacity=".24"/>
+  <path d="M100 360 210 46M540 360 430 46" fill="none" stroke="#8f2f23" stroke-width="10" opacity=".55"/>
+  <g transform="translate(320 236)">
+    <ellipse cx="0" cy="62" rx="84" ry="15" fill="#2d261c" opacity=".22"/>
+    <rect x="-70" y="-34" width="140" height="72" rx="12" fill="#8f2f23" stroke="#2d261c" stroke-width="8"/>
+    <rect x="-44" y="-16" width="30" height="24" fill="#f3d898"/>
+    <rect x="14" y="-16" width="30" height="24" fill="#f3d898"/>
+    <g fill="#2d261c">
+      <circle cx="-48" cy="48" r="21"/>
+      <circle cx="48" cy="48" r="21"/>
+    </g>
+    <g fill="#d6c8ac">
+      <circle cx="-48" cy="48" r="8"/>
+      <circle cx="48" cy="48" r="8"/>
+    </g>
+  </g>
+  <g transform="translate(105 116)">
+    <rect x="-36" y="-8" width="72" height="60" rx="6" fill="#efe1bf" stroke="#2d261c" stroke-width="6"/>
+    <path d="M-46-8 0-42 46-8z" fill="#8f2f23" stroke="#2d261c" stroke-width="6" stroke-linejoin="round"/>
+    <rect x="-18" y="18" width="36" height="34" fill="#6f7f5d"/>
+  </g>
+  <g transform="translate(518 116)">
+    <circle cx="0" cy="-12" r="21" fill="#1f1a14"/>
+    <rect x="-31" y="-31" width="62" height="12" fill="#8f2f23"/>
+    <rect x="-23" y="8" width="46" height="52" rx="5" fill="#2d261c"/>
+    <rect x="-32" y="27" width="64" height="9" fill="#d7a629"/>
+  </g>
+  <g fill="#d7a629" stroke="#8c641a" stroke-width="5" stroke-linejoin="round">
+    <path d="M174 212 202 228 190 258 154 252 148 222z"/>
+    <path d="M452 246 480 264 468 294 430 286 426 256z"/>
+  </g>
+  <g transform="translate(196 126)">
+    <circle cx="0" cy="0" r="18" fill="#6f7f5d"/>
+    <rect x="-20" y="-28" width="40" height="10" fill="#d7a629"/>
+    <rect x="-24" y="18" width="48" height="36" fill="#2d261c"/>
+  </g>
+  <text x="30" y="318" fill="#2d261c" font-family="Arial, sans-serif" font-size="43" font-weight="900">EXPRESS</text>
+  <text x="270" y="318" fill="#8f2f23" font-family="Arial, sans-serif" font-size="43" font-weight="900">RUN</text>
+</svg>
