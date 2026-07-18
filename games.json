@@ -2,7 +2,7 @@
   {
     "id": "stagecoach-gold-run",
     "title": "Wells Fargo Express Run",
-    "description": "A Ralph Moody-inspired frontier lane-runner: drive the express stage through mine country, grab bullion and mail, pick up miners, bank points, and dodge bandits.",
+    "description": "A Ralph Moody-inspired frontier overworld: drive the express stage between mine camps and town banks, grab bullion and mail, pick up miners, bank points, and dodge bandits.",
     "status": "Ready",
     "playUrl": "/games/stagecoach-gold-run/",
     "codeUrl": "",
@@ -10,9 +10,9 @@
     "tags": [
       "Canvas",
       "Arcade",
-      "Runner"
+      "Overworld"
     ],
-    "learned": "Historical flavor works best when it sharpens a simple arcade loop: collect valuables, carry risk, dodge trouble, and bank before the road turns bad.",
+    "learned": "Historical flavor works best when it sharpens the map loop: choose a route, collect valuables, carry risk, dodge trouble, and bank before the road turns bad.",
     "accent": "gold"
   },
   {

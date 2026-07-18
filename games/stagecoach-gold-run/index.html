@@ -210,14 +210,14 @@
     <aside>
       <p class="kicker">Arcade run after Ralph Moody's western history</p>
       <h1>Wells Fargo Express Run</h1>
-      <p class="copy">Drive the express stage across mining country. Grab bullion and mail, pick up miners for score boosts, hit bank stops, and dodge bandits before the route runs out.</p>
+      <p class="copy">Drive the express stage across an open frontier map. Grab bullion and mail at mine camps, pick up miners for score boosts, reach town banks, and dodge bandits before the route runs out.</p>
       <div class="ledger" aria-live="polite">
         <div class="ledger-row"><span>Score Banked</span><strong id="banked">$0</strong></div>
         <div class="ledger-row"><span>Current Loot</span><strong id="load">$0</strong></div>
         <div class="ledger-row"><span>Miners</span><strong id="miners">0</strong></div>
-        <div class="ledger-row"><span>Miles</span><strong id="miles">0</strong></div>
+        <div class="ledger-row"><span>Time</span><strong id="miles">150</strong></div>
       </div>
-      <p class="controls">Move with arrow keys or A/D. Press Space to brake. Keep the loot moving and bank it before bandits hit.</p>
+      <p class="controls">Move with arrows or WASD. Touch and drag on mobile. Bank the loot in town before bandits catch the coach.</p>
       <div class="button-row">
         <button id="startBtn">Start run</button>
         <button id="restartBtn">Reset</button>
@@ -227,7 +227,8 @@
       <canvas id="game" width="900" height="620"></canvas>
       <div class="mobile-controls" aria-label="Touch controls">
         <button id="leftBtn" aria-label="Move left">‹</button>
-        <button id="brakeBtn" aria-label="Brake">•</button>
+        <button id="upBtn" aria-label="Move up">⌃</button>
+        <button id="downBtn" aria-label="Move down">⌄</button>
         <button id="rightBtn" aria-label="Move right">›</button>
       </div>
     </section>
@@ -244,25 +245,50 @@
     const restartBtn = document.querySelector("#restartBtn");
     const leftBtn = document.querySelector("#leftBtn");
     const rightBtn = document.querySelector("#rightBtn");
-    const brakeBtn = document.querySelector("#brakeBtn");
+    const upBtn = document.querySelector("#upBtn");
+    const downBtn = document.querySelector("#downBtn");
 
-    const lanes = [0.22, 0.39, 0.56, 0.73];
+    const world = { width: 2400, height: 1600 };
+    const towns = [
+      { name: "Sacramento Bank", x: 320, y: 320 },
+      { name: "Placerville Bank", x: 1060, y: 480 },
+      { name: "Virginia City Bank", x: 1840, y: 820 },
+      { name: "Austin Bank", x: 1320, y: 1260 },
+      { name: "Carson Bank", x: 520, y: 1180 }
+    ];
+    const mines = [
+      { name: "Quartz Camp", x: 760, y: 250 },
+      { name: "Dutch Flat", x: 1550, y: 360 },
+      { name: "Silver Ravine", x: 2060, y: 610 },
+      { name: "Gold Hill", x: 1780, y: 1280 },
+      { name: "Dry Creek", x: 840, y: 1020 }
+    ];
+    const routes = [
+      [towns[0], mines[0]], [mines[0], towns[1]], [towns[1], mines[1]],
+      [mines[1], towns[2]], [towns[2], mines[3]], [mines[3], towns[3]],
+      [towns[3], mines[4]], [mines[4], towns[4]], [towns[4], towns[0]],
+      [towns[1], mines[4]], [towns[2], towns[3]]
+    ];
+
     const state = {
       running: false,
       over: false,
-      lane: 1,
-      x: 0,
-      y: 500,
+      x: 320,
+      y: 320,
+      vx: 0,
+      vy: 0,
       banked: 0,
       load: 0,
       miners: 0,
       miles: 0,
-      speed: 3,
-      spawnTick: 0,
-      bankTick: 0,
-      objects: [],
+      timeLeft: 150,
+      cargo: [],
+      bandits: [],
+      message: "Find mine camps, fill the express box, then reach a bank.",
       keys: new Set(),
-      last: 0
+      touch: null,
+      last: 0,
+      camera: { x: 0, y: 0 }
     };
 
     function money(value) {
@@ -275,30 +301,26 @@
       canvas.width = Math.max(720, Math.floor(wrap.width * ratio));
       canvas.height = Math.max(520, Math.floor(wrap.height * ratio));
       ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
-      state.y = wrap.height - 110;
-      state.x = laneX(state.lane);
-    }
-
-    function laneX(lane) {
-      const width = canvas.getBoundingClientRect().width;
-      return width * lanes[lane];
+      updateCamera();
     }
 
     function reset() {
       state.running = false;
       state.over = false;
-      state.lane = 1;
-      state.x = laneX(state.lane);
+      state.x = 320;
+      state.y = 320;
+      state.vx = 0;
+      state.vy = 0;
       state.banked = 0;
       state.load = 0;
       state.miners = 0;
       state.miles = 0;
-      state.speed = 3;
-      state.spawnTick = 0;
-      state.bankTick = 0;
-      state.objects = [];
+      state.timeLeft = 150;
+      state.message = "Find mine camps, fill the express box, then reach a bank.";
+      state.cargo = makeCargo();
+      state.bandits = makeBandits();
       updateLedger();
-      draw(0);
+      draw();
     }
 
     function start() {
@@ -311,145 +333,176 @@
       bankedEl.textContent = money(state.banked);
       loadEl.textContent = money(state.load);
       minersEl.textContent = state.miners;
-      milesEl.textContent = Math.floor(state.miles);
+      milesEl.textContent = Math.max(0, Math.ceil(state.timeLeft));
     }
 
-    function move(dir) {
+    function wake() {
       if (!state.running && !state.over) start();
-      state.lane = Math.max(0, Math.min(lanes.length - 1, state.lane + dir));
     }
 
-    function spawnObject() {
-      const roll = Math.random();
-      let type = "bullion";
-      if (roll > 0.84) type = "roadAgent";
-      else if (roll > 0.72) type = "bandit";
-      else if (roll > 0.6) type = "bank";
-      else if (roll > 0.46) type = "miner";
-      else if (roll > 0.36) type = "mail";
-      else if (roll > 0.27) type = "washout";
+    function makeCargo() {
+      const items = [];
+      for (const mine of mines) {
+        items.push({ type: "bullion", x: mine.x + 54, y: mine.y - 28, value: 280, collected: false });
+        items.push({ type: "mail", x: mine.x - 48, y: mine.y + 42, value: 120, collected: false });
+        items.push({ type: "miner", x: mine.x + 8, y: mine.y + 78, value: 0, collected: false });
+      }
+      return items;
+    }
 
-      state.objects.push({
-        type,
-        lane: Math.floor(Math.random() * lanes.length),
-        y: -60,
-        value: type === "bullion" ? 140 + Math.floor(Math.random() * 280) : 0
-      });
+    function makeBandits() {
+      return [
+        { x: 1120, y: 760, speed: 72, patrol: 0 },
+        { x: 1740, y: 520, speed: 88, patrol: 1.5 },
+        { x: 880, y: 1320, speed: 82, patrol: 3.1 },
+        { x: 2040, y: 1080, speed: 76, patrol: 4.5 }
+      ];
+    }
+
+    function clamp(value, min, max) {
+      return Math.max(min, Math.min(max, value));
+    }
+
+    function distance(a, b) {
+      return Math.hypot(a.x - b.x, a.y - b.y);
+    }
+
+    function updateCamera() {
+      const rect = canvas.getBoundingClientRect();
+      state.camera.x = clamp(state.x - rect.width / 2, 0, world.width - rect.width);
+      state.camera.y = clamp(state.y - rect.height / 2, 0, world.height - rect.height);
+    }
+
+    function screenX(x) {
+      return x - state.camera.x;
+    }
+
+    function screenY(y) {
+      return y - state.camera.y;
     }
 
     function update(dt) {
       if (!state.running || state.over) return;
 
-      const brake = state.keys.has(" ") || state.keys.has("brake");
-      const targetX = laneX(state.lane);
-      state.x += (targetX - state.x) * Math.min(1, dt * 0.012);
-      state.speed = Math.min(8.8, state.speed + dt * 0.0008);
-      const travel = state.speed * (brake ? 0.52 : 1);
-      state.miles += travel * dt * 0.006;
-      state.spawnTick += dt;
-      state.bankTick += travel * dt;
+      const seconds = dt / 1000;
+      state.timeLeft -= seconds;
 
-      const spawnEvery = Math.max(420, 900 - state.speed * 42);
-      if (state.spawnTick > spawnEvery) {
-        state.spawnTick = 0;
-        spawnObject();
+      let ax = 0;
+      let ay = 0;
+      if (state.keys.has("ArrowLeft") || state.keys.has("a")) ax -= 1;
+      if (state.keys.has("ArrowRight") || state.keys.has("d")) ax += 1;
+      if (state.keys.has("ArrowUp") || state.keys.has("w")) ay -= 1;
+      if (state.keys.has("ArrowDown") || state.keys.has("s")) ay += 1;
+      if (state.touch) {
+        ax += state.touch.x;
+        ay += state.touch.y;
       }
 
-      if (state.bankTick > 4700) {
-        state.bankTick = 0;
-        state.banked += state.load;
-        state.load = 0;
+      const length = Math.hypot(ax, ay) || 1;
+      const boost = state.keys.has(" ") ? 0.55 : 1;
+      const speed = 230 * boost;
+      state.vx = (ax / length) * speed;
+      state.vy = (ay / length) * speed;
+      const oldX = state.x;
+      const oldY = state.y;
+      state.x = clamp(state.x + state.vx * seconds, 60, world.width - 60);
+      state.y = clamp(state.y + state.vy * seconds, 60, world.height - 60);
+      state.miles += Math.hypot(state.x - oldX, state.y - oldY) / 120;
+
+      for (const item of state.cargo) {
+        if (item.collected || distance(state, item) > 46) continue;
+        item.collected = true;
+        if (item.type === "bullion") {
+          state.load += item.value * (1 + state.miners * 0.15);
+          state.message = "Bullion box loaded.";
+        }
+        if (item.type === "mail") {
+          state.load += item.value;
+          state.message = "Mail sack added to the express box.";
+        }
+        if (item.type === "miner") {
+          state.miners += 1;
+          state.message = "Miner aboard. Cargo bonuses improve.";
+        }
       }
 
-      for (const obj of state.objects) {
-        obj.y += travel * dt * 0.13;
-      }
-
-      const coachBox = { x: state.x - 34, y: state.y - 24, w: 68, h: 54 };
-      for (const obj of state.objects) {
-        const ox = laneX(obj.lane);
-        const size = obj.type === "bandit" || obj.type === "roadAgent" ? 42 : 36;
-        const hit = ox > coachBox.x - size / 2 && ox < coachBox.x + coachBox.w + size / 2 &&
-          obj.y > coachBox.y - size / 2 && obj.y < coachBox.y + coachBox.h + size / 2;
-        if (!hit || obj.collected) continue;
-        obj.collected = true;
-
-        if (obj.type === "bullion") state.load += obj.value * (1 + state.miners * 0.15);
-        if (obj.type === "mail") state.load += 90;
-        if (obj.type === "miner") state.miners += 1;
-        if (obj.type === "bank") {
-          state.banked += state.load + 125;
+      for (const town of towns) {
+        if (distance(state, town) > 76) continue;
+        if (state.load > 0) {
+          state.banked += state.load + 175;
           state.load = 0;
-          state.speed = Math.max(2.8, state.speed - 0.45);
-        }
-        if (obj.type === "washout") state.load = Math.max(0, state.load - 160);
-        if (obj.type === "bandit") {
-          state.load = Math.max(0, state.load - 420);
-          state.miners = Math.max(0, state.miners - 1);
-          state.speed = Math.max(2.8, state.speed - 1.2);
-        }
-        if (obj.type === "roadAgent") {
-          state.load = Math.max(0, state.load - 680);
-          state.miners = Math.max(0, state.miners - 2);
-          state.speed = Math.max(2.8, state.speed - 1.75);
+          state.message = `${town.name} banked the shipment.`;
         }
       }
 
-      state.objects = state.objects.filter(obj => obj.y < canvas.getBoundingClientRect().height + 80 && !obj.collected);
+      for (const bandit of state.bandits) {
+        const chase = distance(state, bandit) < 360;
+        let dx = state.x - bandit.x;
+        let dy = state.y - bandit.y;
+        if (!chase) {
+          dx = Math.cos(state.miles * 0.08 + bandit.patrol);
+          dy = Math.sin(state.miles * 0.07 + bandit.patrol);
+        }
+        const mag = Math.hypot(dx, dy) || 1;
+        bandit.x = clamp(bandit.x + (dx / mag) * bandit.speed * seconds, 80, world.width - 80);
+        bandit.y = clamp(bandit.y + (dy / mag) * bandit.speed * seconds, 80, world.height - 80);
+        if (distance(state, bandit) < 52) {
+          state.load = Math.max(0, state.load - 380);
+          state.miners = Math.max(0, state.miners - 1);
+          bandit.x += (bandit.x - state.x) * 1.7;
+          bandit.y += (bandit.y - state.y) * 1.7;
+          state.message = "Bandits hit the coach. Get to a bank.";
+        }
+      }
 
-      if (state.miles >= 100) {
-        state.banked += state.load + state.miners * 250;
+      if (state.timeLeft <= 0 || (state.banked >= 5200 && state.load === 0)) {
         state.load = 0;
         state.running = false;
         state.over = true;
       }
 
+      updateCamera();
       updateLedger();
     }
 
-    function drawRoad(width, height, scroll) {
+    function drawMap(width, height) {
       ctx.fillStyle = "#c58d58";
       ctx.fillRect(0, 0, width, height);
 
-      ctx.fillStyle = "#9a563a";
-      ctx.beginPath();
-      ctx.moveTo(0, height);
-      ctx.lineTo(width * 0.18, 0);
-      ctx.lineTo(width * 0.26, 0);
-      ctx.lineTo(width * 0.08, height);
-      ctx.closePath();
-      ctx.fill();
+      ctx.save();
+      ctx.translate(-state.camera.x, -state.camera.y);
 
-      ctx.fillStyle = "#b55e43";
-      ctx.beginPath();
-      ctx.moveTo(width, height);
-      ctx.lineTo(width * 0.82, 0);
-      ctx.lineTo(width * 0.94, 0);
-      ctx.lineTo(width, height * 0.5);
-      ctx.closePath();
-      ctx.fill();
-
-      ctx.fillStyle = "#ddbe7a";
-      ctx.beginPath();
-      ctx.moveTo(width * 0.12, height);
-      ctx.lineTo(width * 0.33, 0);
-      ctx.lineTo(width * 0.83, 0);
-      ctx.lineTo(width * 0.92, height);
-      ctx.closePath();
-      ctx.fill();
-
-      ctx.strokeStyle = "rgba(91, 62, 36, 0.45)";
-      ctx.lineWidth = 2;
-      ctx.setLineDash([18, 26]);
-      ctx.lineDashOffset = scroll % 44;
-      for (let i = 1; i < lanes.length; i++) {
-        const x = (laneX(i - 1) + laneX(i)) / 2;
+      ctx.fillStyle = "#b36b45";
+      for (const hill of [
+        [180, 760, 360, 220], [1550, 180, 520, 260], [1940, 1160, 420, 280],
+        [500, 1370, 460, 190], [2180, 380, 320, 220]
+      ]) {
         ctx.beginPath();
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, height);
+        ctx.ellipse(hill[0], hill[1], hill[2], hill[3], 0.1, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      ctx.strokeStyle = "rgba(91, 62, 36, 0.42)";
+      ctx.lineWidth = 34;
+      ctx.lineCap = "round";
+      for (const [a, b] of routes) {
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(b.x, b.y);
+        ctx.stroke();
+      }
+
+      ctx.strokeStyle = "rgba(245, 237, 220, 0.48)";
+      ctx.lineWidth = 4;
+      ctx.setLineDash([12, 18]);
+      for (const [a, b] of routes) {
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(b.x, b.y);
         ctx.stroke();
       }
       ctx.setLineDash([]);
+      ctx.restore();
     }
 
     function drawCoach(x, y) {
@@ -490,8 +543,8 @@
     }
 
     function drawObject(obj) {
-      const x = laneX(obj.lane);
-      const y = obj.y;
+      const x = screenX(obj.x);
+      const y = screenY(obj.y);
       ctx.save();
       ctx.translate(x, y);
       if (obj.type === "bullion") {
@@ -575,6 +628,66 @@
       ctx.restore();
     }
 
+    function drawTown(town) {
+      const x = screenX(town.x);
+      const y = screenY(town.y);
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.fillStyle = "#efe1bf";
+      ctx.strokeStyle = "#4d211b";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.roundRect(-36, -24, 72, 52, 5);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = "#8f2f23";
+      ctx.beginPath();
+      ctx.moveTo(-46, -24);
+      ctx.lineTo(0, -56);
+      ctx.lineTo(46, -24);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = "#6f7f5d";
+      ctx.fillRect(-14, 2, 28, 26);
+      ctx.fillStyle = "#2d261c";
+      ctx.font = "700 12px system-ui, sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText("BANK", 0, -4);
+      ctx.fillText(town.name.replace(" Bank", ""), 0, 48);
+      ctx.restore();
+    }
+
+    function drawMine(mine) {
+      const x = screenX(mine.x);
+      const y = screenY(mine.y);
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.fillStyle = "#705f4e";
+      ctx.beginPath();
+      ctx.moveTo(-44, 28);
+      ctx.lineTo(-12, -36);
+      ctx.lineTo(38, -22);
+      ctx.lineTo(50, 30);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = "#1f1a14";
+      ctx.beginPath();
+      ctx.arc(0, 20, 18, Math.PI, 0);
+      ctx.lineTo(18, 30);
+      ctx.lineTo(-18, 30);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = "#fff8ea";
+      ctx.font = "700 12px system-ui, sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText(mine.name, 0, 52);
+      ctx.restore();
+    }
+
+    function drawBandit(bandit) {
+      drawObject({ type: "roadAgent", x: bandit.x, y: bandit.y });
+    }
+
     function drawOverlay(width, height) {
       if (state.running && !state.over) return;
       ctx.fillStyle = "rgba(45, 38, 28, 0.58)";
@@ -582,34 +695,44 @@
       ctx.fillStyle = "#fff8ea";
       ctx.textAlign = "center";
       ctx.font = "700 34px Georgia, serif";
-      ctx.fillText(state.over ? "Express Delivered" : "Ready at the depot", width / 2, height / 2 - 28);
+      ctx.fillText(state.over ? "Express Delivered" : "Overworld Route Ready", width / 2, height / 2 - 28);
       ctx.font = "600 16px system-ui, sans-serif";
       const message = state.over
-        ? `Final banked gold: ${money(state.banked)}`
-        : "Grab loot, pick up miners, bank points, and dodge bandits.";
+        ? `Final banked score: ${money(state.banked)}`
+        : "Roam the map, load cargo at mines, and reach banks.";
       ctx.fillText(message, width / 2, height / 2 + 10);
       ctx.fillText("Press Start or any arrow key.", width / 2, height / 2 + 42);
       ctx.textAlign = "left";
     }
 
-    function draw(scroll) {
+    function draw() {
       const rect = canvas.getBoundingClientRect();
       const width = rect.width;
       const height = rect.height;
       ctx.clearRect(0, 0, width, height);
-      drawRoad(width, height, scroll);
+      drawMap(width, height);
 
       ctx.fillStyle = "rgba(45, 38, 28, 0.42)";
       ctx.font = "700 13px system-ui, sans-serif";
-      ctx.fillText("MINING CAMPS", 20, 28);
-      ctx.fillText("EXPRESS OFFICE", width - 126, 28);
+      ctx.fillText("OVERWORLD EXPRESS MAP", 20, 28);
+      ctx.fillText(state.message, 20, height - 22);
 
-      const bankProgress = state.bankTick / 4700;
-      ctx.fillStyle = "#6f7f5d";
-      ctx.fillRect(width * 0.18, 10, Math.max(0, width * 0.64 * bankProgress), 5);
+      for (const town of towns) drawTown(town);
+      for (const mine of mines) drawMine(mine);
+      for (const item of state.cargo) {
+        if (!item.collected) drawObject(item);
+      }
+      for (const bandit of state.bandits) drawBandit(bandit);
+      drawCoach(screenX(state.x), screenY(state.y));
 
-      for (const obj of state.objects) drawObject(obj);
-      drawCoach(state.x, state.y);
+      ctx.fillStyle = "rgba(245, 237, 220, 0.82)";
+      ctx.fillRect(width - 166, 14, 142, 70);
+      ctx.fillStyle = "#2d261c";
+      ctx.font = "800 12px system-ui, sans-serif";
+      ctx.fillText("BANK GOAL", width - 148, 38);
+      ctx.font = "700 18px system-ui, sans-serif";
+      ctx.fillText(`${Math.min(100, Math.round(state.banked / 52))}%`, width - 148, 66);
+
       drawOverlay(width, height);
     }
 
@@ -617,26 +740,27 @@
       const dt = Math.min(34, now - state.last || 16);
       state.last = now;
       update(dt);
-      draw(state.miles * 12);
+      draw();
       requestAnimationFrame(loop);
     }
 
     window.addEventListener("resize", () => {
       resize();
-      draw(state.miles * 12);
+      draw();
     });
 
     window.addEventListener("keydown", event => {
-      if (["ArrowLeft", "ArrowRight", " ", "a", "d", "A", "D"].includes(event.key)) {
+      const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
+      if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", " ", "a", "d", "w", "s"].includes(key)) {
         event.preventDefault();
+        wake();
+        state.keys.add(key);
       }
-      if (event.key === "ArrowLeft" || event.key === "a" || event.key === "A") move(-1);
-      if (event.key === "ArrowRight" || event.key === "d" || event.key === "D") move(1);
-      if (event.key === " ") state.keys.add(" ");
     });
 
     window.addEventListener("keyup", event => {
-      if (event.key === " ") state.keys.delete(" ");
+      const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
+      state.keys.delete(key);
     });
 
     function bindHold(button, down, up) {
@@ -649,9 +773,36 @@
       button.addEventListener("pointerleave", up);
     }
 
-    bindHold(leftBtn, () => move(-1), () => {});
-    bindHold(rightBtn, () => move(1), () => {});
-    bindHold(brakeBtn, () => state.keys.add("brake"), () => state.keys.delete("brake"));
+    bindHold(leftBtn, () => { wake(); state.keys.add("ArrowLeft"); }, () => state.keys.delete("ArrowLeft"));
+    bindHold(rightBtn, () => { wake(); state.keys.add("ArrowRight"); }, () => state.keys.delete("ArrowRight"));
+    bindHold(upBtn, () => { wake(); state.keys.add("ArrowUp"); }, () => state.keys.delete("ArrowUp"));
+    bindHold(downBtn, () => { wake(); state.keys.add("ArrowDown"); }, () => state.keys.delete("ArrowDown"));
+
+    canvas.addEventListener("pointerdown", event => {
+      wake();
+      canvas.setPointerCapture(event.pointerId);
+      const rect = canvas.getBoundingClientRect();
+      state.touch = {
+        originX: event.clientX,
+        originY: event.clientY,
+        x: 0,
+        y: 0
+      };
+    });
+
+    canvas.addEventListener("pointermove", event => {
+      if (!state.touch) return;
+      state.touch.x = clamp((event.clientX - state.touch.originX) / 80, -1, 1);
+      state.touch.y = clamp((event.clientY - state.touch.originY) / 80, -1, 1);
+    });
+
+    canvas.addEventListener("pointerup", () => {
+      state.touch = null;
+    });
+
+    canvas.addEventListener("pointercancel", () => {
+      state.touch = null;
+    });
 
     startBtn.addEventListener("click", start);
     restartBtn.addEventListener("click", reset);
