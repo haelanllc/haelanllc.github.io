@@ -210,14 +210,16 @@
     <aside>
       <p class="kicker">Arcade run after Ralph Moody's western history</p>
       <h1>Wells Fargo Express Run</h1>
-      <p class="copy">Drive the express stage across an open frontier map. Grab bullion and mail at mine camps, pick up miners for score boosts, reach town banks, and dodge bandits before the route runs out.</p>
+      <p class="copy">Run a Wells Fargo-style express contract. Pick up the marked bullion, mail, or payroll shipment, use way stations, and deliver it to the right office before road agents catch the coach.</p>
       <div class="ledger" aria-live="polite">
         <div class="ledger-row"><span>Score Banked</span><strong id="banked">$0</strong></div>
         <div class="ledger-row"><span>Current Loot</span><strong id="load">$0</strong></div>
+        <div class="ledger-row"><span>Shipment</span><strong id="shipment">None</strong></div>
+        <div class="ledger-row"><span>Destination</span><strong id="destination">Office</strong></div>
         <div class="ledger-row"><span>Miners</span><strong id="miners">0</strong></div>
         <div class="ledger-row"><span>Time</span><strong id="miles">150</strong></div>
       </div>
-      <p class="controls">Move with arrows or WASD. Touch and drag on mobile. Bank the loot in town before bandits catch the coach.</p>
+      <p class="controls">Move with arrows or WASD. Touch and drag on mobile. Follow the express route, stop at way stations, and deliver to the named office.</p>
       <div class="button-row">
         <button id="startBtn">Start run</button>
         <button id="restartBtn">Reset</button>
@@ -239,6 +241,8 @@
     const ctx = canvas.getContext("2d");
     const bankedEl = document.querySelector("#banked");
     const loadEl = document.querySelector("#load");
+    const shipmentEl = document.querySelector("#shipment");
+    const destinationEl = document.querySelector("#destination");
     const minersEl = document.querySelector("#miners");
     const milesEl = document.querySelector("#miles");
     const startBtn = document.querySelector("#startBtn");
@@ -250,11 +254,11 @@
 
     const world = { width: 2400, height: 1600 };
     const towns = [
-      { name: "Sacramento Bank", x: 320, y: 320 },
-      { name: "Placerville Bank", x: 1060, y: 480 },
-      { name: "Virginia City Bank", x: 1840, y: 820 },
-      { name: "Austin Bank", x: 1320, y: 1260 },
-      { name: "Carson Bank", x: 520, y: 1180 }
+      { name: "Sacramento Office", x: 320, y: 320 },
+      { name: "Placerville Office", x: 1060, y: 480 },
+      { name: "Virginia City Office", x: 1840, y: 820 },
+      { name: "Austin Office", x: 1320, y: 1260 },
+      { name: "Carson Office", x: 520, y: 1180 }
     ];
     const mines = [
       { name: "Quartz Camp", x: 760, y: 250 },
@@ -268,6 +272,19 @@
       [mines[1], towns[2]], [towns[2], mines[3]], [mines[3], towns[3]],
       [towns[3], mines[4]], [mines[4], towns[4]], [towns[4], towns[0]],
       [towns[1], mines[4]], [towns[2], towns[3]]
+    ];
+    const wayStations = [
+      { name: "Miller's Station", x: 650, y: 385, used: false },
+      { name: "Summit Change", x: 1350, y: 650, used: false },
+      { name: "Reese River Station", x: 1110, y: 1120, used: false },
+      { name: "Pine Nut Station", x: 650, y: 820, used: false }
+    ];
+    const contracts = [
+      { type: "Bullion", origin: mines[0], destination: towns[1], value: 720 },
+      { type: "Mail", origin: towns[0], destination: towns[2], value: 540 },
+      { type: "Payroll", origin: towns[1], destination: towns[4], value: 840 },
+      { type: "Silver", origin: mines[2], destination: towns[3], value: 900 },
+      { type: "Treasury Box", origin: mines[3], destination: towns[0], value: 980 }
     ];
 
     const state = {
@@ -284,6 +301,9 @@
       timeLeft: 150,
       cargo: [],
       bandits: [],
+      contract: null,
+      contractLoaded: false,
+      contractsDone: 0,
       message: "Find mine camps, fill the express box, then reach a bank.",
       keys: new Set(),
       touch: null,
@@ -316,7 +336,11 @@
       state.miners = 0;
       state.miles = 0;
       state.timeLeft = 150;
-      state.message = "Find mine camps, fill the express box, then reach a bank.";
+      state.contractsDone = 0;
+      state.contract = contracts[0];
+      state.contractLoaded = false;
+      for (const station of wayStations) station.used = false;
+      state.message = "Pick up the marked express shipment, then reach its office.";
       state.cargo = makeCargo();
       state.bandits = makeBandits();
       updateLedger();
@@ -332,6 +356,8 @@
     function updateLedger() {
       bankedEl.textContent = money(state.banked);
       loadEl.textContent = money(state.load);
+      shipmentEl.textContent = state.contractLoaded ? "Loaded" : state.contract?.type || "None";
+      destinationEl.textContent = state.contract?.destination.name.replace(" Office", "") || "Office";
       minersEl.textContent = state.miners;
       milesEl.textContent = Math.max(0, Math.ceil(state.timeLeft));
     }
@@ -342,8 +368,18 @@
 
     function makeCargo() {
       const items = [];
+      if (state.contract) {
+        items.push({
+          type: "contract",
+          label: state.contract.type,
+          x: state.contract.origin.x,
+          y: state.contract.origin.y - 70,
+          value: state.contract.value,
+          collected: false
+        });
+      }
       for (const mine of mines) {
-        items.push({ type: "bullion", x: mine.x + 54, y: mine.y - 28, value: 280, collected: false });
+        items.push({ type: "bullion", x: mine.x + 54, y: mine.y - 28, value: 180, collected: false });
         items.push({ type: "mail", x: mine.x - 48, y: mine.y + 42, value: 120, collected: false });
         items.push({ type: "miner", x: mine.x + 8, y: mine.y + 78, value: 0, collected: false });
       }
@@ -357,6 +393,14 @@
         { x: 880, y: 1320, speed: 82, patrol: 3.1 },
         { x: 2040, y: 1080, speed: 76, patrol: 4.5 }
       ];
+    }
+
+    function nextContract() {
+      state.contractsDone += 1;
+      state.contract = contracts[state.contractsDone % contracts.length];
+      state.contractLoaded = false;
+      state.cargo = makeCargo();
+      state.message = `${state.contract.type} order posted. Pick it up at ${state.contract.origin.name}.`;
     }
 
     function clamp(value, min, max) {
@@ -412,6 +456,11 @@
       for (const item of state.cargo) {
         if (item.collected || distance(state, item) > 46) continue;
         item.collected = true;
+        if (item.type === "contract") {
+          state.load += item.value;
+          state.contractLoaded = true;
+          state.message = `${item.label} shipment loaded. Deliver to ${state.contract.destination.name}.`;
+        }
         if (item.type === "bullion") {
           state.load += item.value * (1 + state.miners * 0.15);
           state.message = "Bullion box loaded.";
@@ -428,11 +477,24 @@
 
       for (const town of towns) {
         if (distance(state, town) > 76) continue;
-        if (state.load > 0) {
-          state.banked += state.load + 175;
+        if (town === state.contract.destination && state.contractLoaded) {
+          state.banked += state.load + state.contract.value;
           state.load = 0;
-          state.message = `${town.name} banked the shipment.`;
+          state.message = `${town.name} signed the express receipt.`;
+          nextContract();
+        } else if (state.load > 0) {
+          state.banked += Math.round(state.load * 0.35);
+          state.load = 0;
+          state.message = "Wrong office. Partial deposit only.";
         }
+      }
+
+      for (const station of wayStations) {
+        if (station.used || distance(state, station) > 66) continue;
+        station.used = true;
+        state.timeLeft += 10;
+        state.banked += 90;
+        state.message = `${station.name}: fresh team and route note.`;
       }
 
       for (const bandit of state.bandits) {
@@ -455,7 +517,7 @@
         }
       }
 
-      if (state.timeLeft <= 0 || (state.banked >= 5200 && state.load === 0)) {
+      if (state.timeLeft <= 0 || state.contractsDone >= 5) {
         state.load = 0;
         state.running = false;
         state.over = true;
@@ -502,6 +564,17 @@
         ctx.stroke();
       }
       ctx.setLineDash([]);
+
+      if (state.contract) {
+        ctx.strokeStyle = "#8f2f23";
+        ctx.lineWidth = 7;
+        ctx.setLineDash([18, 14]);
+        ctx.beginPath();
+        ctx.moveTo(state.contract.origin.x, state.contract.origin.y);
+        ctx.lineTo(state.contract.destination.x, state.contract.destination.y);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
       ctx.restore();
     }
 
@@ -547,7 +620,20 @@
       const y = screenY(obj.y);
       ctx.save();
       ctx.translate(x, y);
-      if (obj.type === "bullion") {
+      if (obj.type === "contract") {
+        ctx.fillStyle = "#8f2f23";
+        ctx.strokeStyle = "#fff8ea";
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.roundRect(-31, -22, 62, 44, 6);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = "#fff8ea";
+        ctx.font = "800 11px system-ui, sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("EXPRESS", 0, -2);
+        ctx.fillText(obj.label.toUpperCase(), 0, 13);
+      } else if (obj.type === "bullion") {
         ctx.fillStyle = "#d7a629";
         ctx.strokeStyle = "#8c641a";
         ctx.lineWidth = 2;
@@ -652,8 +738,28 @@
       ctx.fillStyle = "#2d261c";
       ctx.font = "700 12px system-ui, sans-serif";
       ctx.textAlign = "center";
-      ctx.fillText("BANK", 0, -4);
-      ctx.fillText(town.name.replace(" Bank", ""), 0, 48);
+      ctx.fillText("W.F. OFFICE", 0, -4);
+      ctx.fillText(town.name.replace(" Office", ""), 0, 48);
+      ctx.restore();
+    }
+
+    function drawWayStation(station) {
+      const x = screenX(station.x);
+      const y = screenY(station.y);
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.fillStyle = station.used ? "rgba(111, 127, 93, 0.55)" : "#d6c8ac";
+      ctx.strokeStyle = "#4d211b";
+      ctx.lineWidth = 3;
+      ctx.fillRect(-30, -18, 60, 36);
+      ctx.strokeRect(-30, -18, 60, 36);
+      ctx.fillStyle = "#8f2f23";
+      ctx.fillRect(-24, -34, 48, 16);
+      ctx.fillStyle = "#2d261c";
+      ctx.font = "700 11px system-ui, sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText("WAY", 0, 3);
+      ctx.fillText(station.name, 0, 34);
       ctx.restore();
     }
 
@@ -695,11 +801,11 @@
       ctx.fillStyle = "#fff8ea";
       ctx.textAlign = "center";
       ctx.font = "700 34px Georgia, serif";
-      ctx.fillText(state.over ? "Express Delivered" : "Overworld Route Ready", width / 2, height / 2 - 28);
+      ctx.fillText(state.over ? "Express Ledger Closed" : "Contract Posted", width / 2, height / 2 - 28);
       ctx.font = "600 16px system-ui, sans-serif";
       const message = state.over
-        ? `Final banked score: ${money(state.banked)}`
-        : "Roam the map, load cargo at mines, and reach banks.";
+        ? `Final express receipts: ${money(state.banked)}`
+        : "Pick up the marked shipment and deliver to the named office.";
       ctx.fillText(message, width / 2, height / 2 + 10);
       ctx.fillText("Press Start or any arrow key.", width / 2, height / 2 + 42);
       ctx.textAlign = "left";
@@ -714,11 +820,12 @@
 
       ctx.fillStyle = "rgba(45, 38, 28, 0.42)";
       ctx.font = "700 13px system-ui, sans-serif";
-      ctx.fillText("OVERWORLD EXPRESS MAP", 20, 28);
+      ctx.fillText("WELLS FARGO EXPRESS MAP", 20, 28);
       ctx.fillText(state.message, 20, height - 22);
 
       for (const town of towns) drawTown(town);
       for (const mine of mines) drawMine(mine);
+      for (const station of wayStations) drawWayStation(station);
       for (const item of state.cargo) {
         if (!item.collected) drawObject(item);
       }
@@ -729,7 +836,7 @@
       ctx.fillRect(width - 166, 14, 142, 70);
       ctx.fillStyle = "#2d261c";
       ctx.font = "800 12px system-ui, sans-serif";
-      ctx.fillText("BANK GOAL", width - 148, 38);
+      ctx.fillText("RECEIPTS", width - 148, 38);
       ctx.font = "700 18px system-ui, sans-serif";
       ctx.fillText(`${Math.min(100, Math.round(state.banked / 52))}%`, width - 148, 66);
 

@@ -2,7 +2,7 @@
   {
     "id": "stagecoach-gold-run",
     "title": "Wells Fargo Express Run",
-    "description": "A Ralph Moody-inspired frontier overworld: drive the express stage between mine camps and town banks, grab bullion and mail, pick up miners, bank points, and dodge bandits.",
+    "description": "A Wells Fargo-style frontier express overworld: take posted contracts, pick up marked bullion, mail, payroll, and treasury shipments, use way stations, and deliver to the right office while road agents close in.",
     "status": "Ready",
     "playUrl": "/games/stagecoach-gold-run/",
     "codeUrl": "",
@@ -12,7 +12,7 @@
       "Arcade",
       "Overworld"
     ],
-    "learned": "Historical flavor works best when it sharpens the map loop: choose a route, collect valuables, carry risk, dodge trouble, and bank before the road turns bad.",
+    "learned": "The Wells Fargo feel comes through when the game is about posted shipments, express offices, receipts, way stations, and route risk rather than generic gold collection.",
     "accent": "gold"
   },
   {
